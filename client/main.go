@@ -8,12 +8,7 @@ import (
 
 func main() {
 	path := os.Args[1]
-	fw := fswatcher.NewFsWatcher()
-	err := fw.SetPath(path)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
+	fw := fswatcher.NewFsWatcher(path)
 	fschan := fw.GetChan()
 
 	// start watching

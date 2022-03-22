@@ -1,57 +1,127 @@
 package fswatcher
 
 import (
+	"errors"
+	"gcloudsync/common"
+	"gcloudsync/fsops"
 	"log"
-	"os"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 type FsWatcher struct {
-	path   string
-	fschan chan fsnotify.Event
+	path    string
+	fschan  chan common.FsEvent
+	watcher *fsnotify.Watcher
 }
 
-func NewFsWatcher() *FsWatcher {
-	c := make(chan fsnotify.Event)
-	return &FsWatcher{fschan: c}
-}
-
-func (f *FsWatcher) SetPath(path string) (err error) {
-	// check path availibitiy
-	file, err := os.Open(path)
+func NewFsWatcher(path string) *FsWatcher {
+	f := new(FsWatcher)
+	// set monitor path
+	err := f.setPath(path)
 	if err != nil {
-		log.Fatal("invalid path")
-		file.Close()
-		return err
+		log.Fatal(err)
 	}
-	file.Close()
+	// get a watcher
+	f.watcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		log.Println(err)
+	}
+	// make a channal for communication
+	ch := make(chan common.FsEvent)
+	f.fschan = ch
+	return f
+}
+
+func (f *FsWatcher) setPath(path string) (err error) {
+	// check path availibitiy
+	ok := fsops.IsFileExist(path)
+	if !ok {
+		return errors.New("file not exist")
+	}
 	f.path = path
 	return nil
 }
 
-func (f *FsWatcher) GetChan() chan fsnotify.Event {
+func (f *FsWatcher) GetChan() chan common.FsEvent {
 	return f.fschan
 }
 
-func (f *FsWatcher) StartWatching() {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
+// since fsnotify does not work well on delete action on macOS
+// we transfer fsnotify event to our own event
+func (f *FsWatcher) toFsEvent(event fsnotify.Event) (common.FsEvent, error) {
+	var op common.FileOp
+	var isdir bool
+	if ok, _ := fsops.IsFolder(event.Name); ok {
+		isdir = true
+	} else {
+		isdir = false
 	}
-	defer watcher.Close()
+
+	if event.Op&fsnotify.Create == fsnotify.Create {
+		op = common.OpCreate
+		// if it is dir, add to watcher
+		if isdir {
+			f.addDir(event.Name)
+		}
+	} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+		op = common.OpRemove
+	} else if event.Op&fsnotify.Write == fsnotify.Write {
+		op = common.OpModify
+	} else if event.Op&fsnotify.Rename == fsnotify.Rename {
+		ok := fsops.IsFileExist(event.Name)
+		if !ok {
+			op = common.OpRemove
+		} else {
+			op = common.OpRename
+		}
+	} else {
+		return common.FsEvent{}, errors.New("unknown event")
+	}
+
+	return common.FsEvent{Op: op, FileName: event.Name, IsDir: isdir}, nil
+}
+
+func (f *FsWatcher) addAll() (err error) {
+	f.addDir(f.path)
+	return nil
+}
+
+// add all subdir recursively
+func (f *FsWatcher) addDir(path string) (err error) {
+	if ok, _ := fsops.IsFolder(path); !ok {
+		return errors.New("not a folder")
+	}
+	f.watcher.Add(path)
+
+	flist, err := fsops.GetSubDirs(path)
+	if err != nil {
+		log.Println(err)
+	}
+
+	for _, folder := range flist {
+		f.addDir(folder)
+	}
+	return
+}
+
+func (f *FsWatcher) StartWatching() {
+	defer f.watcher.Close()
 
 	done := make(chan bool)
 	go func() {
 		for {
 			select {
-			case event, ok := <-watcher.Events:
+			case event, ok := <-f.watcher.Events:
 				if !ok {
 					return
 				}
 				// log.Println("event:", event)
-				f.fschan <- event
-			case err, ok := <-watcher.Errors:
+				fsevent, err := f.toFsEvent(event)
+				if err == nil {
+					f.fschan <- fsevent
+				}
+			case err, ok := <-f.watcher.Errors:
 				if !ok {
 					return
 				}
@@ -60,7 +130,7 @@ func (f *FsWatcher) StartWatching() {
 		}
 	}()
 
-	err = watcher.Add(f.path)
+	err := f.addAll()
 	if err != nil {
 		log.Fatal(err)
 	}
