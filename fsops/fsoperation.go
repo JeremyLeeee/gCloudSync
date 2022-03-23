@@ -65,13 +65,26 @@ func GetSubDirs(path string) (dirlist []string, err error) {
 }
 
 func Makedir(path string) (err error) {
-	return
+	return os.Mkdir(path, 0666)
 }
 
 func Delete(path string) (err error) {
-	return
+	return os.RemoveAll(path)
 }
 
 func Create(path string) (err error) {
-	return
+	if !IsFileExist(path) {
+		_, err := os.Create(path)
+		return err
+	}
+	return nil
+}
+
+func Write(path string, b []byte, off int64) (n int, err error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return -1, err
+	}
+	defer file.Close()
+	return file.WriteAt(b, off)
 }

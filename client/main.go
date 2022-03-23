@@ -17,6 +17,7 @@ func main() {
 	}()
 	log.Println("start watching folder:", path)
 
+	// dispatch fs event
 	for {
 		event := <-fschan
 		log.Print(event)
