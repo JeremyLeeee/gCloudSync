@@ -3,6 +3,7 @@ package network
 import (
 	"gcloudsync/common"
 	"gcloudsync/config"
+	"log"
 	"net"
 )
 
@@ -10,6 +11,7 @@ type ITCPClient interface {
 	Connect() error
 	Send(b []byte) error
 	Receive() []byte
+	ReadFromClient()
 	GetBuffChan() chan []byte
 	Close()
 }
@@ -22,7 +24,7 @@ type TCPClient struct {
 }
 
 func NewClient(ip string, port string) ITCPClient {
-	buffchan := make(chan []byte)
+	buffchan := make(chan []byte, config.BuffChanSize)
 	return &TCPClient{destAddr: ip, port: port, buffchan: buffchan}
 }
 
@@ -38,9 +40,18 @@ func (c *TCPClient) Connect() error {
 }
 
 func (c *TCPClient) Send(b []byte) (err error) {
-	_, err = c.conn.Write(b)
-	common.ErrorHandleDebug(err)
-	return err
+	if len(b) <= config.TransferBlockSize {
+		_, err = c.conn.Write(b)
+		common.ErrorHandleDebug(err)
+	} else {
+		i := 0
+		for ; i+config.TransferBlockSize <= len(b); i = i + config.TransferBlockSize {
+			_, err = c.conn.Write(b[i : i+config.TransferBlockSize])
+			common.ErrorHandleDebug(err)
+		}
+		_, err = c.conn.Write(b[i:])
+	}
+	return
 }
 
 func (c *TCPClient) GetBuffChan() chan []byte {
@@ -48,11 +59,29 @@ func (c *TCPClient) GetBuffChan() chan []byte {
 }
 
 func (c *TCPClient) Receive() []byte {
-	buffer := make([]byte, config.TransferBlockSize)
+	buffer := make([]byte, config.MaxBufferSize)
 	c.conn.Read(buffer)
 	return buffer
 }
 
 func (c *TCPClient) Close() {
 	c.conn.Close()
+}
+
+func (c *TCPClient) ReadFromClient() {
+	for {
+		buffer := make([]byte, config.MaxBufferSize)
+		n, err := c.conn.Read(buffer)
+		if err != nil {
+			// client send done
+			common.ErrorHandleDebug(err)
+			return
+		}
+
+		buff := buffer[0:n]
+		if len(buff) != 0 {
+			log.Println("receive: " + string(buff))
+			c.buffchan <- buff
+		}
+	}
 }

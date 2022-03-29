@@ -11,6 +11,17 @@ import (
 
 func main() {
 	testNetwork()
+	testFsWatcher()
+}
+
+func HandleClient(client network.ITCPClient) {
+	bc := client.GetBuffChan()
+	var buffer []byte
+	for {
+		buffer = <-bc
+		log.Println(string(buffer))
+		client.Send([]byte("The data to Server"))
+	}
 }
 
 func testNetwork() {
@@ -18,13 +29,13 @@ func testNetwork() {
 	client.Connect()
 	log.Println("connect ok")
 
+	go HandleClient(client)
+	go client.ReadFromClient()
+
 	var line string
 	for {
 		fmt.Scanln(&line)
 		client.Send([]byte(line))
-		log.Println("write: " + line)
-		recvBuffer := client.Receive()
-		log.Println("receive: ", string(recvBuffer))
 	}
 }
 
@@ -34,9 +45,8 @@ func testFsWatcher() {
 	fschan := fw.GetChan()
 
 	// start watching
-	go func() {
-		fw.StartWatching()
-	}()
+	go fw.StartWatching()
+
 	log.Println("start watching folder:", path)
 
 	// dispatch fs event

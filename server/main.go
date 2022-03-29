@@ -6,16 +6,6 @@ import (
 	"log"
 )
 
-// receive data from client and response
-func HandleServer(server network.ITCPServer) {
-	bc := server.GetBuffChan()
-	for {
-		buffer := <-bc
-		log.Println(string(buffer))
-		server.Send([]byte("welcome"))
-	}
-}
-
 func main() {
 	server := network.NewServer(config.Port)
 
@@ -25,4 +15,15 @@ func main() {
 
 	log.Println("start listening")
 	<-done
+}
+
+// receive data from client and response
+func HandleServer(server network.ITCPServer) {
+	bc := server.GetBuffChan()
+	var buffer []byte
+	for {
+		buffer = <-bc
+		log.Println(string(buffer))
+		server.Send([]byte("The data to Client"))
+	}
 }

@@ -21,10 +21,12 @@ type TCPServer struct {
 }
 
 func NewServer(port string) ITCPServer {
-	buffchan := make(chan []byte)
+	buffchan := make(chan []byte, config.BuffChanSize)
 	return &TCPServer{port: port, buffchan: buffchan}
 }
 
+// when new connection arrive, create an goroutine to handle receiving data.
+// data from client will be writen to buffchan
 func (s *TCPServer) Listen() {
 	tcpServer, _ := net.ResolveTCPAddr("tcp4", ":"+config.Port)
 	listener, _ := net.ListenTCP("tcp", tcpServer)
@@ -47,24 +49,35 @@ func (s *TCPServer) GetBuffChan() chan []byte {
 }
 
 func (s *TCPServer) Send(b []byte) (err error) {
-	_, err = s.currentConn.Write(b)
+	if len(b) <= config.TransferBlockSize {
+		_, err = s.currentConn.Write(b)
+		common.ErrorHandleDebug(err)
+	} else {
+		i := 0
+		for ; i+config.TransferBlockSize <= len(b); i = i + config.TransferBlockSize {
+			_, err = s.currentConn.Write(b[i : i+config.TransferBlockSize])
+			common.ErrorHandleDebug(err)
+		}
+		_, err = s.currentConn.Write(b[i:])
+	}
+
 	return
 }
 
 func (s *TCPServer) readFromClient() {
-	log.Println("start reading from client")
-	buffer := make([]byte, config.TransferBlockSize)
 	for {
+		buffer := make([]byte, config.MaxBufferSize)
 		n, err := s.currentConn.Read(buffer)
 		if err != nil {
 			// client send done
 			common.ErrorHandleDebug(err)
 			return
 		}
-		dataString := string(buffer[0:n])
 
-		if len(dataString) != 0 {
-			s.buffchan <- buffer[0:n]
+		buff := buffer[0:n]
+		if len(buff) != 0 {
+			log.Println("receive: " + string(buff))
+			s.buffchan <- buff
 		}
 	}
 }
