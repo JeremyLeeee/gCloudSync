@@ -1,6 +1,10 @@
 package common
 
-import "strconv"
+import (
+	"log"
+	"os"
+	"strconv"
+)
 
 type FileOp int
 
@@ -9,6 +13,11 @@ const (
 	OpRemove
 	OpModify
 	OpRename
+)
+
+const (
+	AcceptOK = "AcceptOK"
+	Done     = "Done"
 )
 
 type FsEvent struct {
@@ -32,4 +41,17 @@ func (fe FsEvent) String() string {
 	}
 
 	return eventString + ": " + fe.FileName + ", isdir: " + strconv.FormatBool(fe.IsDir)
+}
+
+func ErrorHandleFatal(err error) {
+	if err != nil {
+		log.Println("Fatal error: ", err)
+		os.Exit(-1)
+	}
+}
+
+func ErrorHandleDebug(err error) {
+	if err != nil {
+		log.Println("Error: ", err)
+	}
 }
