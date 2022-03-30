@@ -2,16 +2,28 @@ package main
 
 import (
 	"fmt"
+	"gcloudsync/common"
 	"gcloudsync/config"
 	"gcloudsync/fswatcher"
+	"gcloudsync/metadata"
 	"gcloudsync/network"
 	"log"
 	"os"
 )
 
 func main() {
-	testNetwork()
-	testFsWatcher()
+	header := metadata.NewHeader(12, common.SysDone)
+	buf, err := header.ToByteArray()
+	common.ErrorHandleDebug(err)
+	log.Println(buf)
+
+	tag, datalen, err := header.GetHeaderFromData(buf)
+	common.ErrorHandleDebug(err)
+
+	log.Println("tag:", tag, "datalen:", datalen)
+
+	//testNetwork()
+	//testFsWatcher()
 }
 
 func HandleClient(client network.ITCPClient) {
@@ -20,7 +32,7 @@ func HandleClient(client network.ITCPClient) {
 	for {
 		buffer = <-bc
 		log.Println(string(buffer))
-		client.Send([]byte("The data to Server"))
+		// client.Send([]byte("The data to Server"))
 	}
 }
 
@@ -35,6 +47,7 @@ func testNetwork() {
 	var line string
 	for {
 		fmt.Scanln(&line)
+		log.Println([]byte(line))
 		client.Send([]byte(line))
 	}
 }

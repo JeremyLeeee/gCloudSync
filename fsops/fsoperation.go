@@ -7,6 +7,9 @@ import (
 	"os"
 )
 
+var currentFile *os.File
+var isOpened bool = false
+
 func IsFileExist(path string) bool {
 	file, err := os.Open(path)
 	result := true
@@ -80,11 +83,48 @@ func Create(path string) (err error) {
 	return nil
 }
 
-func Write(path string, b []byte, off int64) (n int, err error) {
+func WriteOnce(path string, b []byte, off int64) (n int, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return -1, err
 	}
 	defer file.Close()
 	return file.WriteAt(b, off)
+}
+
+func ReadOnce(path string, b []byte, off int64) (n int, err error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return -1, err
+	}
+	defer file.Close()
+	return file.ReadAt(b, off)
+}
+
+func Write(path string, b []byte, off int64) (n int, err error) {
+	if !isOpened {
+		currentFile, err = os.Open(path)
+		if err != nil {
+			return -1, err
+		}
+		isOpened = true
+	}
+	return currentFile.WriteAt(b, off)
+}
+
+func Read(path string, b []byte, off int64) (n int, err error) {
+	if !isOpened {
+		currentFile, err = os.Open(path)
+		if err != nil {
+			return -1, err
+		}
+		isOpened = true
+	}
+	return currentFile.ReadAt(b, off)
+}
+
+// do not forget to call it after read or write
+func CloseCurrentFile() {
+	currentFile.Close()
+	isOpened = false
 }

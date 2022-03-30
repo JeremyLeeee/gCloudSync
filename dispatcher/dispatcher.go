@@ -5,7 +5,7 @@ import "gcloudsync/config"
 type IDispatcher interface {
 	SetData([]byte)
 	GetData() []byte
-	GetResponseData() []byte
+	GetDispatchedData() []byte
 }
 
 // handle data format transfer, event dispatcher
@@ -28,6 +28,6 @@ func (d *Dispatcher) GetData() []byte {
 	return d.data
 }
 
-func (d *Dispatcher) GetResponseData() []byte {
+func (d *Dispatcher) GetDispatchedData() []byte {
 	return nil
 }

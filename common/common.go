@@ -6,10 +6,12 @@ import (
 	"strconv"
 )
 
-type FileOp int
+type FsOp int
+type SysOp uint16
 
+// fs event
 const (
-	OpCreate FileOp = 1 << (32 - 1 - iota)
+	OpCreate FsOp = 1 << (32 - 1 - iota)
 	OpRemove
 	OpModify
 	OpRename
@@ -20,8 +22,15 @@ const (
 	Done     = "Done"
 )
 
+// system event
+const (
+	SysConnected SysOp = 101
+	SysDone
+	SysCheckConsistence
+)
+
 type FsEvent struct {
-	Op       FileOp
+	Op       FsOp
 	FileName string
 	IsDir    bool
 }

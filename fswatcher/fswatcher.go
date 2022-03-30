@@ -50,7 +50,7 @@ func (f *FsWatcher) GetChan() chan common.FsEvent {
 // since fsnotify does not work well on delete action on macOS
 // we transfer fsnotify event to our own event
 func (f *FsWatcher) toFsEvent(event fsnotify.Event) (common.FsEvent, error) {
-	var op common.FileOp
+	var op common.FsOp
 	var isdir bool
 	if ok, _ := fsops.IsFolder(event.Name); ok {
 		isdir = true
