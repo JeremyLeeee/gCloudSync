@@ -1,6 +1,8 @@
 package common
 
 import (
+	"bytes"
+	"encoding/binary"
 	"log"
 	"os"
 	"strconv"
@@ -24,9 +26,10 @@ const (
 
 // system event
 const (
-	SysConnected SysOp = 101
+	SysConnected SysOp = 101 + iota
 	SysDone
 	SysCheckConsistence
+	SysInit
 )
 
 type FsEvent struct {
@@ -63,4 +66,20 @@ func ErrorHandleDebug(err error) {
 	if err != nil {
 		log.Println("Error: ", err)
 	}
+}
+
+func SysOpToByteArray(op SysOp) ([]byte, error) {
+	buf := new(bytes.Buffer)
+
+	if err := binary.Write(buf, binary.BigEndian, op); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func MergeArray(b1 []byte, b2 []byte) []byte {
+	var buf bytes.Buffer
+	buf.Write(b1)
+	buf.Write(b2)
+	return buf.Bytes()
 }
