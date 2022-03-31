@@ -3,8 +3,11 @@ package network
 import (
 	"gcloudsync/common"
 	"gcloudsync/config"
+	"log"
 	"net"
 )
+
+var logtag string = "[Network]"
 
 type ITCPClient interface {
 	Connect() error
@@ -30,10 +33,10 @@ func NewClient(ip string, port string) ITCPClient {
 func (c *TCPClient) Connect() error {
 	// connect to server
 	addr, err := net.ResolveTCPAddr("tcp4", config.ServerIP+":"+config.Port)
-	common.ErrorHandleFatal(err)
+	common.ErrorHandleFatal(logtag, err)
 
 	c.conn, err = net.DialTCP("tcp4", nil, addr)
-	common.ErrorHandleFatal(err)
+	common.ErrorHandleFatal(logtag, err)
 
 	return err
 }
@@ -41,12 +44,12 @@ func (c *TCPClient) Connect() error {
 func (c *TCPClient) Send(b []byte) (err error) {
 	if len(b) <= config.TransferBlockSize {
 		_, err = c.conn.Write(b)
-		common.ErrorHandleDebug(err)
+		common.ErrorHandleDebug(logtag, err)
 	} else {
 		i := 0
 		for ; i+config.TransferBlockSize <= len(b); i = i + config.TransferBlockSize {
 			_, err = c.conn.Write(b[i : i+config.TransferBlockSize])
-			common.ErrorHandleDebug(err)
+			common.ErrorHandleDebug(logtag, err)
 		}
 		_, err = c.conn.Write(b[i:])
 	}
@@ -73,13 +76,13 @@ func (c *TCPClient) ReadFromClient() {
 		n, err := c.conn.Read(buffer)
 		if err != nil {
 			// client send done
-			common.ErrorHandleDebug(err)
+			common.ErrorHandleDebug(logtag, err)
 			return
 		}
 
 		buff := buffer[0:n]
 		if len(buff) != 0 {
-			// log.Println("receive: " + string(buff))
+			log.Println(logtag, "receive: "+string(buff))
 			c.buffchan <- buff
 		}
 	}

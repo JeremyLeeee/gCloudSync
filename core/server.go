@@ -1,4 +1,4 @@
-package processer
+package core
 
 import (
 	"gcloudsync/common"
@@ -8,28 +8,35 @@ import (
 	"log"
 )
 
-// main entry
-func StartServer() {
+type ServerCore struct {
+	server network.ITCPServer
+}
+
+func NewServerCore() ServerCore {
 	server := network.NewServer(config.Port)
+	return ServerCore{server: server}
+}
 
+// main entry
+func (s *ServerCore) StartServer() {
 	done := make(chan bool)
-	go server.Listen()
-	go handleServer(server, done)
+	go s.server.Listen()
+	go s.handleServer(done)
 
-	log.Println("start listening")
+	log.Println(logtag, "start listening")
 	<-done
 }
 
 // enter main loop for data exchanging
-func handleServer(server network.ITCPServer, done chan bool) {
-	bc := server.GetBuffChan()
+func (s *ServerCore) handleServer(done chan bool) {
+	bc := s.server.GetBuffChan()
 	var buffer []byte
 	for {
 		data := <-bc
-		log.Println("--received--:", string(data))
+		log.Println(logtag, "received:", string(data))
 
 		tag, length, err := metadata.GetHeaderFromData(data)
-		common.ErrorHandleDebug(err)
+		common.ErrorHandleDebug(logtag, err)
 		gotHeader := false
 
 		if err != nil {
@@ -61,14 +68,14 @@ func handleServer(server network.ITCPServer, done chan bool) {
 		// get current data buffer
 		currentData := buffer[0 : length+24]
 
-		log.Println("tag:", tag, "len:", length, "data:", string(currentData))
+		log.Println(logtag, "tag:", tag, "len:", length, "data:", string(currentData))
 		// now buffer contains all the data
 		switch tag {
 		case common.SysInit:
-			log.Println("client initing...")
-			sendServer(server, common.SysDone, []byte{})
+			log.Println(logtag, "client initing...")
+			s.sendServer(common.SysDone, []byte{})
 		default:
-			log.Panic("unknown op")
+			log.Panic(logtag, "unknown op")
 		}
 		// clear current data buffer
 		buffer = buffer[length+24:]
@@ -77,17 +84,17 @@ func handleServer(server network.ITCPServer, done chan bool) {
 }
 
 // add header and send
-func sendServer(server network.ITCPServer, op common.SysOp, data []byte) error {
+func (s *ServerCore) sendServer(op common.SysOp, data []byte) error {
 	// get header
 	header := metadata.NewHeader(uint64(len(data)), op)
 	sendByte, err := header.ToByteArray()
-	common.ErrorHandleDebug(err)
+	common.ErrorHandleDebug(logtag, err)
 
 	// merge to array
 	sendByte = common.MergeArray(sendByte, data)
 
-	log.Println("send:", string(sendByte), "len:", len(sendByte))
-	server.Send(sendByte)
+	log.Println(logtag, "send:", string(sendByte), "len:", len(sendByte))
+	s.server.Send(sendByte)
 
 	return err
 }

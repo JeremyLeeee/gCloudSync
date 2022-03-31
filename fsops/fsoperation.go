@@ -2,6 +2,7 @@ package fsops
 
 import (
 	"errors"
+	"gcloudsync/common"
 	"io/ioutil"
 	"log"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 var currentFile *os.File
 var isOpened bool = false
+var logtag string = "[FsOps]"
 
 func IsFileExist(path string) bool {
 	file, err := os.Open(path)
@@ -35,9 +37,7 @@ func GetFileList(path string) (flist []string, err error) {
 	}
 
 	filist, err := ioutil.ReadDir(path)
-	if err != nil {
-		log.Println("read dir error")
-	}
+	common.ErrorHandleDebug(logtag, err)
 
 	for _, f := range filist {
 		fname := path + "/" + f.Name()
@@ -54,7 +54,7 @@ func GetSubDirs(path string) (dirlist []string, err error) {
 
 	filist, err := ioutil.ReadDir(path)
 	if err != nil {
-		log.Println("read dir error")
+		log.Println(logtag, "read dir error")
 	}
 
 	for _, f := range filist {

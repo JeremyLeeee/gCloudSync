@@ -1,44 +1,64 @@
-package processer
+package core
 
 import (
 	"gcloudsync/common"
 	"gcloudsync/config"
+	"gcloudsync/fswatcher"
 	"gcloudsync/metadata"
 	"gcloudsync/network"
 	"log"
 )
 
-// main entry
-func StartClient() {
+var logtag string = "[Core]"
+
+type ClientCore struct {
+	client    network.ITCPClient
+	watchPath string
+}
+
+func NewClientCore(path string) ClientCore {
 	cli := network.NewClient(config.ServerIP, config.Port)
-	err := cli.Connect()
-	common.ErrorHandleFatal(err)
+	return ClientCore{client: cli, watchPath: path}
+}
+
+func (c *ClientCore) StartClient() {
+	err := c.client.Connect()
+	common.ErrorHandleFatal(logtag, err)
+	defer c.client.Close()
+
 	done := make(chan bool)
 
 	// handle received message
-	go handleClient(cli, done)
+	go c.handleClient(done)
 
 	// start receiving
-	go cli.ReadFromClient()
+	go c.client.ReadFromClient()
 
 	// send init signal
-	sendClient(cli, common.SysInit, []byte(""))
+	c.sendClient(common.SysInit, []byte{})
 
+	// init ok
 	<-done
+
+	// next start watching fs
+	// fall into another loop
+	//
+	c.startWatching()
+
 	close(done)
 }
 
 // enter main loop for data exchanging
-func handleClient(client network.ITCPClient, done chan bool) {
-	bc := client.GetBuffChan()
+func (c *ClientCore) handleClient(done chan bool) {
+	bc := c.client.GetBuffChan()
 	var buffer []byte
 
 	for {
 		data := <-bc
-		log.Println("--received--:", string(data))
+		log.Println(logtag, "received:", string(data))
 
 		tag, length, err := metadata.GetHeaderFromData(data)
-		common.ErrorHandleDebug(err)
+		common.ErrorHandleDebug(logtag, err)
 		gotHeader := false
 
 		if err != nil {
@@ -70,14 +90,14 @@ func handleClient(client network.ITCPClient, done chan bool) {
 		// get current data buffer
 		currentData := buffer[0 : length+24]
 
-		log.Println("tag:", tag, "len:", length, "data:", string(currentData))
+		log.Println(logtag, "tag:", tag, "len:", length, "data:", string(currentData))
 		// now buffer contains all the data
 		switch tag {
 		case common.SysDone:
-			log.Println("Done")
+			log.Println(logtag, "Done")
 			done <- true
 		default:
-			log.Panic("unknown op")
+			log.Panic(logtag, "unknown op")
 
 		}
 		// clear current data buffer
@@ -87,16 +107,33 @@ func handleClient(client network.ITCPClient, done chan bool) {
 }
 
 // add header and send
-func sendClient(client network.ITCPClient, op common.SysOp, data []byte) error {
+func (c *ClientCore) sendClient(op common.SysOp, data []byte) error {
 	// get header
 	header := metadata.NewHeader(uint64(len(data)), op)
 	sendByte, err := header.ToByteArray()
-	common.ErrorHandleDebug(err)
+	common.ErrorHandleDebug(logtag, err)
 
 	// merge to array
 	sendByte = common.MergeArray(sendByte, data)
-	log.Println("send:", string(sendByte), "len:", len(sendByte))
-	client.Send(sendByte)
+	log.Println(logtag, "send:", string(sendByte), "len:", len(sendByte))
+	c.client.Send(sendByte)
 
 	return err
+}
+
+// start watching fs
+func (c *ClientCore) startWatching() {
+	fw := fswatcher.NewFsWatcher(c.watchPath)
+	fschan := fw.GetChan()
+
+	// start watching
+	go fw.StartWatching()
+
+	log.Println(logtag, "start watching folder:", c.watchPath)
+
+	// dispatch fs event
+	for {
+		event := <-fschan
+		log.Print(logtag, event)
+	}
 }

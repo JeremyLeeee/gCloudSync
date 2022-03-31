@@ -34,7 +34,7 @@ func (s *TCPServer) Listen() {
 	for {
 		// new connection from client
 		conn, err := listener.Accept()
-		log.Println("new connection")
+		log.Println(logtag, "new connection")
 		if err != nil {
 			log.Println(err)
 			continue
@@ -51,12 +51,12 @@ func (s *TCPServer) GetBuffChan() chan []byte {
 func (s *TCPServer) Send(b []byte) (err error) {
 	if len(b) <= config.TransferBlockSize {
 		_, err = s.currentConn.Write(b)
-		common.ErrorHandleDebug(err)
+		common.ErrorHandleDebug(logtag, err)
 	} else {
 		i := 0
 		for ; i+config.TransferBlockSize <= len(b); i = i + config.TransferBlockSize {
 			_, err = s.currentConn.Write(b[i : i+config.TransferBlockSize])
-			common.ErrorHandleDebug(err)
+			common.ErrorHandleDebug(logtag, err)
 		}
 		_, err = s.currentConn.Write(b[i:])
 	}
@@ -70,13 +70,13 @@ func (s *TCPServer) readFromClient() {
 		n, err := s.currentConn.Read(buffer)
 		if err != nil {
 			// client send done
-			common.ErrorHandleDebug(err)
+			common.ErrorHandleDebug(logtag, err)
 			return
 		}
 
 		buff := buffer[0:n]
 		if len(buff) != 0 {
-			log.Println("receive: " + string(buff))
+			log.Println(logtag, "receive: "+string(buff))
 			s.buffchan <- buff
 		}
 	}

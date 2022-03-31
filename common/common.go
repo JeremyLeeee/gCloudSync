@@ -55,16 +55,16 @@ func (fe FsEvent) String() string {
 	return eventString + ": " + fe.FileName + ", isdir: " + strconv.FormatBool(fe.IsDir)
 }
 
-func ErrorHandleFatal(err error) {
+func ErrorHandleFatal(tag string, err error) {
 	if err != nil {
-		log.Println("Fatal error: ", err)
+		log.Println(tag, "Fatal error: ", err)
 		os.Exit(-1)
 	}
 }
 
-func ErrorHandleDebug(err error) {
+func ErrorHandleDebug(tag string, err error) {
 	if err != nil {
-		log.Println("Error: ", err)
+		log.Println(tag, "Error: ", err)
 	}
 }
 

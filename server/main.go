@@ -1,7 +1,10 @@
 package main
 
-import "gcloudsync/processer"
+import (
+	"gcloudsync/core"
+)
 
 func main() {
-	processer.StartServer()
+	sc := core.NewServerCore()
+	sc.StartServer()
 }

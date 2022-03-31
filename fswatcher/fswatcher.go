@@ -9,6 +9,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+var logtag string = "[FsWatcher]"
+
 type FsWatcher struct {
 	path    string
 	fschan  chan common.FsEvent
@@ -19,14 +21,10 @@ func NewFsWatcher(path string) *FsWatcher {
 	f := new(FsWatcher)
 	// set monitor path
 	err := f.setPath(path)
-	if err != nil {
-		log.Fatal(err)
-	}
+	common.ErrorHandleFatal(logtag, err)
 	// get a watcher
 	f.watcher, err = fsnotify.NewWatcher()
-	if err != nil {
-		log.Println(err)
-	}
+	common.ErrorHandleDebug(logtag, err)
 	// make a channal for communication
 	ch := make(chan common.FsEvent)
 	f.fschan = ch
@@ -95,9 +93,7 @@ func (f *FsWatcher) addDir(path string) (err error) {
 	f.watcher.Add(path)
 
 	flist, err := fsops.GetSubDirs(path)
-	if err != nil {
-		log.Println(err)
-	}
+	common.ErrorHandleDebug(logtag, err)
 
 	for _, folder := range flist {
 		f.addDir(folder)
@@ -125,14 +121,12 @@ func (f *FsWatcher) StartWatching() {
 				if !ok {
 					return
 				}
-				log.Println("err:", err)
+				log.Println(logtag, "err:", err)
 			}
 		}
 	}()
 
 	err := f.addAll()
-	if err != nil {
-		log.Fatal(err)
-	}
+	common.ErrorHandleFatal(logtag, err)
 	<-done
 }
