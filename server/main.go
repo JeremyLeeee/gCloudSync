@@ -3,10 +3,13 @@ package main
 import (
 	"gcloudsync/config"
 	"gcloudsync/core"
+	"log"
 )
 
+var logtag string = "[Main]"
+
 func main() {
-	path := config.ServerRootPath
-	sc := core.NewServerCore(path)
+	log.Println(logtag, "Root Path:", config.ServerRootPath)
+	sc := core.NewServerCore(config.ServerRootPath)
 	sc.StartServer()
 }

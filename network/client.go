@@ -13,7 +13,7 @@ type ITCPClient interface {
 	Connect() error
 	Send(b []byte) error
 	Receive() []byte
-	ReadFromClient()
+	ReadFromServer()
 	GetBuffChan() chan []byte
 	Close()
 }
@@ -70,7 +70,7 @@ func (c *TCPClient) Close() {
 	c.conn.Close()
 }
 
-func (c *TCPClient) ReadFromClient() {
+func (c *TCPClient) ReadFromServer() {
 	for {
 		buffer := make([]byte, config.MaxBufferSize)
 		n, err := c.conn.Read(buffer)

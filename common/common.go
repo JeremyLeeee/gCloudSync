@@ -35,6 +35,10 @@ const (
 	SysDone
 	SysCheckConsistence
 	SysInit
+	SysSyncFolder
+	SysSyncFileBegin
+	SysSyncFileEmpty
+	SysSyncFileNotEmpty
 )
 
 type FsEvent struct {
