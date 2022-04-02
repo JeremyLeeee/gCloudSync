@@ -13,12 +13,13 @@ type Header struct {
 	// header to specify data package
 	Signature [14]byte
 	Tag       common.SysOp
-	Length    uint64
+	Length    uint32
+	Last      uint32
 }
 
-func NewHeader(len uint64, tag common.SysOp) Header {
+func NewHeader(len uint32, tag common.SysOp, last uint32) Header {
 	// signature is "gCloudSync2022"
-	return Header{Signature: Sig, Tag: tag, Length: len}
+	return Header{Signature: Sig, Tag: tag, Length: len, Last: last}
 }
 
 func (h Header) ToByteArray() (b []byte, err error) {
@@ -31,7 +32,7 @@ func (h Header) ToByteArray() (b []byte, err error) {
 	return buf.Bytes(), nil
 }
 
-func GetHeaderFromData(b []byte) (tag common.SysOp, length uint64, err error) {
+func GetHeaderFromData(b []byte) (tag common.SysOp, length uint32, err error) {
 	if len(b) < 24 {
 		// invalid length for header
 		return 0, 0, errors.New("invalid length")

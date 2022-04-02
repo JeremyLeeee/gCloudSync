@@ -24,6 +24,11 @@ const (
 	Done     = "Done"
 )
 
+const (
+	IsLastPackage   = 51
+	IsNotLastPacage = 52
+)
+
 // system event
 const (
 	SysConnected SysOp = 101 + iota
@@ -33,9 +38,10 @@ const (
 )
 
 type FsEvent struct {
-	Op       FsOp
-	FileName string
-	IsDir    bool
+	Op         FsOp
+	FileName   string
+	IsDir      bool
+	OriginFile string // for rename event
 }
 
 func (fe FsEvent) String() string {

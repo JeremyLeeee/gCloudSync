@@ -35,14 +35,13 @@ func (c *ClientCore) StartClient() {
 	go c.client.ReadFromClient()
 
 	// send init signal
-	c.sendClient(common.SysInit, []byte{})
+	WrappAndSend(c.client, common.SysInit, []byte{}, common.IsLastPackage)
 
 	// init ok
 	<-done
 
 	// next start watching fs
 	// fall into another loop
-	//
 	c.startWatching()
 
 	close(done)
@@ -106,21 +105,6 @@ func (c *ClientCore) handleClient(done chan bool) {
 	}
 }
 
-// add header and send
-func (c *ClientCore) sendClient(op common.SysOp, data []byte) error {
-	// get header
-	header := metadata.NewHeader(uint64(len(data)), op)
-	sendByte, err := header.ToByteArray()
-	common.ErrorHandleDebug(logtag, err)
-
-	// merge to array
-	sendByte = common.MergeArray(sendByte, data)
-	log.Println(logtag, "send:", string(sendByte), "len:", len(sendByte))
-	c.client.Send(sendByte)
-
-	return err
-}
-
 // start watching fs
 func (c *ClientCore) startWatching() {
 	fw := fswatcher.NewFsWatcher(c.watchPath)
@@ -134,6 +118,6 @@ func (c *ClientCore) startWatching() {
 	// dispatch fs event
 	for {
 		event := <-fschan
-		log.Print(logtag, event)
+		log.Println(logtag, event)
 	}
 }

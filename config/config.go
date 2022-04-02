@@ -8,4 +8,6 @@ const (
 	MaxBufferSize     = 1024 * 1024
 	BuffChanSize      = 100
 	Siglen            = 12
+	ServerRootPath    = "/Users/jeremylee/Documents/code/gcs_root/server"
+	ClientRootPath    = "/Users/jeremylee/Documents/code/gcs_root/client"
 )

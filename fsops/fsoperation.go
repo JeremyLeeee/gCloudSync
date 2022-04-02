@@ -3,6 +3,7 @@ package fsops
 import (
 	"errors"
 	"gcloudsync/common"
+	"gcloudsync/config"
 	"io/ioutil"
 	"log"
 	"os"
@@ -127,4 +128,31 @@ func Read(path string, b []byte, off int64) (n int, err error) {
 func CloseCurrentFile() {
 	currentFile.Close()
 	isOpened = false
+}
+
+func GetAllFile(path string) (result []string) {
+	return getAllFileHelper(path, result)
+}
+
+func getAllFileHelper(path string, result []string) []string {
+	result = append(result, path)
+	if ok, _ := IsFolder(path); !ok {
+		return result
+	}
+
+	filist, err := ioutil.ReadDir(path)
+	common.ErrorHandleDebug(logtag, err)
+
+	for _, file := range filist {
+		result = getAllFileHelper(path+"/"+file.Name(), result)
+	}
+	return result
+}
+
+func RemoveRootPrefix(path string) (result string) {
+	// assume all input include root path
+	b := []byte(path)
+	length := len(config.ServerRootPath)
+	b = b[length:]
+	return string(b)
 }

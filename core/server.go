@@ -3,6 +3,7 @@ package core
 import (
 	"gcloudsync/common"
 	"gcloudsync/config"
+	"gcloudsync/fsops"
 	"gcloudsync/metadata"
 	"gcloudsync/network"
 	"log"
@@ -10,11 +11,12 @@ import (
 
 type ServerCore struct {
 	server network.ITCPServer
+	path   string
 }
 
-func NewServerCore() ServerCore {
+func NewServerCore(path string) ServerCore {
 	server := network.NewServer(config.Port)
-	return ServerCore{server: server}
+	return ServerCore{server: server, path: path}
 }
 
 // main entry
@@ -73,7 +75,14 @@ func (s *ServerCore) handleServer(done chan bool) {
 		switch tag {
 		case common.SysInit:
 			log.Println(logtag, "client initing...")
-			s.sendServer(common.SysDone, []byte{})
+			// get all file list and send to client
+			flist := fsops.GetAllFile(s.path)
+			common.ErrorHandleDebug(logtag, err)
+			// for each file and folder, sync to client
+			for _, filePath := range flist {
+				log.Println(logtag, "[Files in Server]", fsops.RemoveRootPrefix(filePath))
+			}
+			WrappAndSend(s.server, common.SysDone, []byte{}, common.IsLastPackage)
 		default:
 			log.Panic(logtag, "unknown op")
 		}
@@ -81,20 +90,4 @@ func (s *ServerCore) handleServer(done chan bool) {
 		buffer = buffer[length+24:]
 		// log.Println("remain buffer:", string(buffer))
 	}
-}
-
-// add header and send
-func (s *ServerCore) sendServer(op common.SysOp, data []byte) error {
-	// get header
-	header := metadata.NewHeader(uint64(len(data)), op)
-	sendByte, err := header.ToByteArray()
-	common.ErrorHandleDebug(logtag, err)
-
-	// merge to array
-	sendByte = common.MergeArray(sendByte, data)
-
-	log.Println(logtag, "send:", string(sendByte), "len:", len(sendByte))
-	s.server.Send(sendByte)
-
-	return err
 }

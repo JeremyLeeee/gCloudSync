@@ -4,7 +4,6 @@ import (
 	"errors"
 	"gcloudsync/common"
 	"gcloudsync/fsops"
-	"log"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -67,12 +66,7 @@ func (f *FsWatcher) toFsEvent(event fsnotify.Event) (common.FsEvent, error) {
 	} else if event.Op&fsnotify.Write == fsnotify.Write {
 		op = common.OpModify
 	} else if event.Op&fsnotify.Rename == fsnotify.Rename {
-		ok := fsops.IsFileExist(event.Name)
-		if !ok {
-			op = common.OpRemove
-		} else {
-			op = common.OpRename
-		}
+		op = common.OpRename
 	} else {
 		return common.FsEvent{}, errors.New("unknown event")
 	}
@@ -112,7 +106,7 @@ func (f *FsWatcher) StartWatching() {
 				if !ok {
 					return
 				}
-				// log.Println("event:", event)
+				// log.Println(logtag, "event:", event)
 				fsevent, err := f.toFsEvent(event)
 				if err == nil {
 					f.fschan <- fsevent
@@ -121,7 +115,7 @@ func (f *FsWatcher) StartWatching() {
 				if !ok {
 					return
 				}
-				log.Println(logtag, "err:", err)
+				common.ErrorHandleDebug(logtag, err)
 			}
 		}
 	}()

@@ -1,11 +1,11 @@
 package main
 
 import (
+	"gcloudsync/config"
 	"gcloudsync/core"
-	"os"
 )
 
 func main() {
-	cc := core.NewClientCore(os.Args[1])
+	cc := core.NewClientCore(config.ClientRootPath)
 	cc.StartClient()
 }

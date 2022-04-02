@@ -1,10 +1,12 @@
 package main
 
 import (
+	"gcloudsync/config"
 	"gcloudsync/core"
 )
 
 func main() {
-	sc := core.NewServerCore()
+	path := config.ServerRootPath
+	sc := core.NewServerCore(path)
 	sc.StartServer()
 }
