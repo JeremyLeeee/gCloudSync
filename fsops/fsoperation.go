@@ -69,7 +69,11 @@ func GetSubDirs(path string) (dirlist []string, err error) {
 }
 
 func Makedir(path string) (err error) {
-	return os.Mkdir(path, 0666)
+	if !IsFileExist(path) {
+		log.Println(logtag, "mkdir:", path)
+		return os.Mkdir(path, 0777)
+	}
+	return nil
 }
 
 func Delete(path string) (err error) {

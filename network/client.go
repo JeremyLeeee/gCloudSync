@@ -3,7 +3,6 @@ package network
 import (
 	"gcloudsync/common"
 	"gcloudsync/config"
-	"log"
 	"net"
 )
 
@@ -82,7 +81,7 @@ func (c *TCPClient) ReadFromServer() {
 
 		buff := buffer[0:n]
 		if len(buff) != 0 {
-			log.Println(logtag, "receive: "+string(buff))
+			// log.Println(logtag, "receive: "+string(buff))
 			c.buffchan <- buff
 		}
 	}

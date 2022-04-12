@@ -8,8 +8,6 @@ import (
 	"log"
 )
 
-var logtag string = "[Core]"
-
 type ClientCore struct {
 	client    network.ITCPClient
 	watchPath string
