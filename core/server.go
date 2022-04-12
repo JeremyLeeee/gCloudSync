@@ -21,7 +21,7 @@ func (s *ServerCore) StartServer() {
 	done := make(chan bool)
 	bc := s.server.GetBuffChan()
 	go s.server.Listen()
-	go handleCore(s.server, bc, done)
+	go handleCore(s.server, bc, done, nil, nil)
 
 	log.Println(logtag, "start listening")
 	<-done

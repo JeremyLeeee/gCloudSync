@@ -11,8 +11,9 @@ import (
 )
 
 var logtag string = "[Core]"
+var currentFilePath string
 
-func wrappAndSend(base interface{}, op common.SysOp, data []byte, last uint32) error {
+func WrappAndSend(base interface{}, op common.SysOp, data []byte, last uint32) error {
 	// get header
 	header := metadata.NewHeader(uint32(len(data)), op, last)
 	sendByte, err := header.ToByteArray()
@@ -21,7 +22,7 @@ func wrappAndSend(base interface{}, op common.SysOp, data []byte, last uint32) e
 	// merge to array
 	sendByte = common.MergeArray(sendByte, data)
 
-	log.Println(logtag, "send:", string(data), "len:", len(data))
+	// log.Println(logtag, "send:", string(data), "len:", len(data))
 
 	in := make([]reflect.Value, 1)
 	in[0] = reflect.ValueOf(sendByte)
@@ -34,27 +35,31 @@ func wrappAndSend(base interface{}, op common.SysOp, data []byte, last uint32) e
 // @base: interface for server or client
 // @bufferChan: buffer channel for comming data
 // @done: a bool channel represent whether everything is done
-func handleCore(base interface{}, bufferChan chan []byte, done chan bool) {
+func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
+	eventChan chan common.FsEvent, eventDone chan bool) {
+
 	var buffer []byte
 	var header metadata.Header
 	var data []byte
 	var err error
 	var isClient bool
+	var pathPrefix string
 
 	baseTypeString := reflect.TypeOf(base).String()
 	log.Println(logtag, "current base:", baseTypeString)
 
 	if baseTypeString == "*network.TCPClient" {
 		isClient = true
+		pathPrefix = config.ClientRootPath
 	} else {
 		isClient = false
+		pathPrefix = config.ServerRootPath
 	}
 
 	// main loop for data processing
 	for {
 		tempBuffer := <-bufferChan
 		buffer = common.MergeArray(buffer, tempBuffer)
-		// log.Println(logtag, "received:", string(data))
 
 		for {
 			buffer, header, data, err = getOnePackageFromBuffer(buffer)
@@ -71,26 +76,67 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool) {
 				common.ErrorHandleDebug(logtag, err)
 				// for each file and folder, sync to client
 				for _, filePath := range flist {
-					syncOneFileSend(fsops.RemoveRootPrefix(filePath), base, isClient)
+					syncOneFileSend(fsops.RemoveRootPrefix(filePath, false), base, isClient)
 				}
-				wrappAndSend(base, common.SysDone, []byte{}, common.IsLastPackage)
+				WrappAndSend(base, common.SysDone, []byte{}, common.IsLastPackage)
+
 			case common.SysSyncFileEmpty:
 				// transfer the file directly
+				path := string(data)
+				absPath := pathPrefix + path
+				fileSize, err := fsops.GetFileSize(absPath)
+				common.ErrorHandleDebug(logtag, err)
+				data := make([]byte, config.MaxBufferSize)
+
+				// start sending file
+				var count int64
+				count = 0
+
+				log.Println(logtag, "sync:", path)
+				for {
+					n, _ := fsops.ReadOnce(absPath, data, count)
+					count = count + int64(n)
+					if n == int(fileSize) {
+						// read once is enough
+						WrappAndSend(base, common.SysSyncFileDirect, data, common.IsLastPackage)
+						break
+					} else {
+						WrappAndSend(base, common.SysSyncFileDirect, data, common.IsNotLastPacage)
+						if count == fileSize {
+							log.Println(logtag, absPath, "read finished")
+							WrappAndSend(base, common.SysSyncFileDirect, []byte{}, common.IsLastPackage)
+							break
+						}
+					}
+				}
+				fsops.CloseCurrentFile()
 			case common.SysSyncFileNotEmpty:
 				// apply rsync algo
+
 			case common.SysSyncFolder:
 				// generate new folder
 				folderPath := string(data)
-
-				if isClient {
-					err = fsops.Makedir(config.ClientRootPath + folderPath)
-				} else {
-					err = fsops.Makedir(config.ServerRootPath + folderPath)
-				}
+				err = fsops.Makedir(pathPrefix + folderPath)
 				common.ErrorHandleDebug(logtag, err)
+
 			case common.SysSyncFileBegin:
 				// entry for transfering file
-				log.Println(logtag, "file to be transfered:", string(data))
+				// log.Println(logtag, "file to be transfered:", string(data))
+				path := pathPrefix + string(data)
+
+				// add to event loop
+				if eventChan != nil {
+					event := common.FsEvent{Op: common.OpFetch, FileName: path, IsDir: false}
+					eventChan <- event
+				}
+			case common.SysSyncFileDirect:
+				// log.Println(logtag, "write file:", currentFilePath)
+				_, err := fsops.Write(currentFilePath, data, 0)
+				common.ErrorHandleDebug(logtag, err)
+				if header.Last == common.IsLastPackage {
+					fsops.CloseCurrentFile()
+					eventDone <- true
+				}
 			case common.SysDone:
 				done <- true
 			default:
@@ -105,19 +151,19 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool) {
 // @path: relative path of the file or folder
 func syncOneFileSend(path string, base interface{}, isClient bool) {
 	var ok bool
-
+	var absPath string
 	if isClient {
-		ok, _ = fsops.IsFolder(config.ClientRootPath + path)
+		absPath = config.ClientRootPath + path
 	} else {
-		ok, _ = fsops.IsFolder(config.ServerRootPath + path)
+		absPath = config.ServerRootPath + path
 	}
 
+	ok, _ = fsops.IsFolder(absPath)
+
 	if ok {
-		// a folder
-		wrappAndSend(base, common.SysSyncFolder, []byte(path), common.IsLastPackage)
+		WrappAndSend(base, common.SysSyncFolder, []byte(path), common.IsLastPackage)
 	} else {
-		// a file
-		wrappAndSend(base, common.SysSyncFileBegin, []byte(path), common.IsLastPackage)
+		WrappAndSend(base, common.SysSyncFileBegin, []byte(path), common.IsLastPackage)
 	}
 }
 

@@ -89,7 +89,7 @@ func Create(path string) (err error) {
 }
 
 func WriteOnce(path string, b []byte, off int64) (n int, err error) {
-	file, err := os.Open(path)
+	file, err := os.OpenFile(path, os.O_WRONLY, 0777)
 	if err != nil {
 		return -1, err
 	}
@@ -107,8 +107,11 @@ func ReadOnce(path string, b []byte, off int64) (n int, err error) {
 }
 
 func Write(path string, b []byte, off int64) (n int, err error) {
+	if !IsFileExist(path) {
+		Create(path)
+	}
 	if !isOpened {
-		currentFile, err = os.Open(path)
+		currentFile, err = os.OpenFile(path, os.O_WRONLY, 0777)
 		if err != nil {
 			return -1, err
 		}
@@ -153,10 +156,21 @@ func getAllFileHelper(path string, result []string) []string {
 	return result
 }
 
-func RemoveRootPrefix(path string) (result string) {
+func RemoveRootPrefix(path string, isClient bool) (result string) {
 	// assume all input include root path
 	b := []byte(path)
-	length := len(config.ServerRootPath)
-	b = b[length:]
+	if isClient {
+		b = b[len(config.ClientRootPath):]
+	} else {
+		b = b[len(config.ServerRootPath):]
+	}
 	return string(b)
+}
+
+func GetFileSize(path string) (size int64, err error) {
+	fileinfo, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	return fileinfo.Size(), nil
 }

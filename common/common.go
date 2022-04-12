@@ -17,6 +17,7 @@ const (
 	OpRemove
 	OpModify
 	OpRename
+	OpFetch // need sync file from server
 )
 
 const (
@@ -37,8 +38,9 @@ const (
 	SysInit
 	SysSyncFolder
 	SysSyncFileBegin
-	SysSyncFileEmpty
-	SysSyncFileNotEmpty
+	SysSyncFileEmpty    // sender get this tag
+	SysSyncFileNotEmpty // sender get this tag
+	SysSyncFileDirect   // receiver get this tag
 )
 
 type FsEvent struct {
@@ -60,6 +62,8 @@ func (fe FsEvent) String() string {
 		eventString = "rename"
 	case OpRemove:
 		eventString = "remove"
+	case OpFetch:
+		eventString = "fetch"
 	}
 
 	return eventString + ": " + fe.FileName + ", isdir: " + strconv.FormatBool(fe.IsDir)
