@@ -3,10 +3,10 @@ package rsync
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"gcloudsync/common"
 	"gcloudsync/config"
 	"gcloudsync/fsops"
-	"log"
 )
 
 var logtag string = "[Rsync]"
@@ -31,24 +31,25 @@ func GenerateHashTable(absPath string) []byte {
 	count = 0
 	for {
 		n, err := fsops.Read(absPath, data, count)
-		common.ErrorHandleDebug(logtag, err)
+
 		if n != config.TruncateBlockSize {
 			buff = data
 		} else if n > 0 {
 			buff = data[0:n]
-		} else if n == 0 {
-			// read over
-			break
-		} else {
-			log.Panicln(logtag, "invalid read")
 		}
 		// calculate record
 		chunk := uint32(count / config.TruncateBlockSize)
 		rc := getRollingChecksum(buff)
 		md5 := common.GetByteMd5(buff)
 		key := uint16(rc >> 16)
-		record := getOneRecord(key, chunk, rc, md5)
+		record := generateOneRow(key, chunk, rc, md5)
+
+		// add to table
 		common.MergeArray(result, record)
+
+		if err != nil {
+			break
+		}
 
 		count = count + int64(n)
 	}
@@ -56,7 +57,7 @@ func GenerateHashTable(absPath string) []byte {
 }
 
 func getRollingChecksum(b []byte) uint32 {
-	length := len(b)
+	length := uint32(len(b))
 	var s1, s2, i uint32
 	s1 = 0
 	s2 = 0
@@ -72,17 +73,30 @@ func getRollingChecksum(b []byte) uint32 {
 	return (s1 & 0xffff) + (s2 << 16)
 }
 
-func getOneRecord(key uint16, chunk uint32, rc uint32, md5 []byte) []byte {
+func generateOneRow(key uint16, chunk uint32, rc uint32, md5 []byte) []byte {
 	var buf bytes.Buffer
-	var b []byte
+	b2 := make([]byte, 2)
+	b4 := make([]byte, 4)
 
-	binary.BigEndian.PutUint16(b, key)
-	buf.Write([]byte(b))
-	binary.BigEndian.PutUint32(b, chunk)
-	buf.Write([]byte(b))
-	binary.BigEndian.PutUint32(b, rc)
-	buf.Write([]byte(b))
+	binary.BigEndian.PutUint16(b2, key)
+	buf.Write([]byte(b2))
+	binary.BigEndian.PutUint32(b4, chunk)
+	buf.Write([]byte(b4))
+	binary.BigEndian.PutUint32(b4, rc)
+	buf.Write([]byte(b4))
 	buf.Write(md5)
 
 	return buf.Bytes()
+}
+
+func extractFromOneRow(b []byte) (key uint16, chunk uint32, rc uint32, md5 []byte, err error) {
+	if len(b) != 26 {
+		err = errors.New("invalid length")
+		return
+	}
+	key = binary.BigEndian.Uint16(b[0:2])
+	chunk = binary.BigEndian.Uint32(b[2:6])
+	rc = binary.BigEndian.Uint32(b[6:10])
+	md5 = b[10:26]
+	return
 }

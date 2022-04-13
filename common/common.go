@@ -43,10 +43,10 @@ const (
 	SysInit
 	SysSyncFolder
 	SysSyncFileBegin
-	SysSyncFileEmpty    // sender get this tag
-	SysSyncFileNotEmpty // sender get this tag
-	SysSyncFileDirect   // receiver get this tag
-	SysSyncFinished     // receiver get this tag
+	SysSyncFileEmpty
+	SysSyncFileNotEmpty
+	SysSyncFileDirect
+	SysSyncFinished
 
 	SysOpRemove
 	SysOpCreate

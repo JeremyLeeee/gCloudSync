@@ -156,7 +156,11 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				err = fsops.Makedir(absPath)
 				common.ErrorHandleDebug(logtag, err)
 			case common.SysOpModify:
+				if eventDone != nil {
+					eventDone <- true
+				}
 				// generate checksum
+
 			case common.SysDone:
 				done <- true
 			default:
