@@ -49,9 +49,6 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 	baseTypeString := reflect.TypeOf(base).String()
 	log.Println(logtag, "current base:", baseTypeString)
 
-	// store file data
-	databuff := make([]byte, config.MaxBufferSize)
-
 	if baseTypeString == "*network.TCPClient" {
 		isClient = true
 		pathPrefix = config.ClientRootPath
@@ -90,37 +87,13 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				// transfer the file directly
 				path := string(data)
 				absPath := pathPrefix + path
-				fileSize, err := fsops.GetFileSize(absPath)
-				common.ErrorHandleDebug(logtag, err)
+				directFileSend(base, absPath)
 
-				// start sending file
-				var count int64
-				count = 0
-
-				// log.Println(logtag, "sync:", path)
-				for {
-					n, _ := fsops.ReadOnce(absPath, databuff, count)
-					count = count + int64(n)
-
-					filedata := databuff[0:n]
-					if n == int(fileSize) {
-						// read once is enough
-						WrappAndSend(base, common.SysSyncFileDirect, filedata, common.IsLastPackage)
-						break
-					} else {
-						WrappAndSend(base, common.SysSyncFileDirect, filedata, common.IsNotLastPacage)
-						if count == fileSize {
-							log.Println(logtag, absPath, "read finished")
-							WrappAndSend(base, common.SysSyncFileDirect, []byte{}, common.IsLastPackage)
-							break
-						}
-					}
-				}
-				fsops.CloseCurrentFile()
 			case common.SysSyncFileNotEmpty:
 				// receive checksum from sender
 				checksum := data[0:16]
-				absPath := pathPrefix + string(data[16:])
+				path := string(data[16:])
+				absPath := pathPrefix + path
 
 				// validate local file
 				md5 := common.GetFileMd5(absPath)
@@ -131,15 +104,13 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				} else {
 					// apply rsync algo
 					log.Println(logtag, absPath, "need rsync")
-					WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
+					WrappAndSend(base, common.SysOpModify, []byte(path), common.IsLastPackage)
 				}
-
 			case common.SysSyncFolder:
-				// generate new folder
-				folderPath := string(data)
-				err = fsops.Makedir(pathPrefix + folderPath)
-				common.ErrorHandleDebug(logtag, err)
-
+				absPath := pathPrefix + string(data)
+				if !fsops.IsFileExist(absPath) {
+					fsops.Makedir(absPath)
+				}
 			case common.SysSyncFileBegin:
 				// entry for transfering file
 				// log.Println(logtag, "file to be transfered:", string(data))
@@ -165,6 +136,27 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				if eventDone != nil {
 					eventDone <- true
 				}
+
+			case common.SysOpCreate:
+				absPath := pathPrefix + string(data)
+
+				// 1. touch
+				err := fsops.Create(absPath)
+				common.ErrorHandleDebug(logtag, err)
+				// 2. sync
+
+			case common.SysOpRemove:
+				absPath := pathPrefix + string(data)
+				err := fsops.Delete(absPath)
+				common.ErrorHandleDebug(logtag, err)
+
+			case common.SysOpMkdir:
+				// generate new folder
+				absPath := pathPrefix + string(data)
+				err = fsops.Makedir(absPath)
+				common.ErrorHandleDebug(logtag, err)
+			case common.SysOpModify:
+				// generate checksum
 			case common.SysDone:
 				done <- true
 			default:
@@ -216,4 +208,36 @@ func getOnePackageFromBuffer(buffer []byte) (remainBuffer []byte, header metadat
 	remainBuffer = buffer[header.Length+24:]
 
 	return remainBuffer, header, packageData, nil
+}
+
+func directFileSend(base interface{}, absPath string) {
+	databuff := make([]byte, config.MaxBufferSize)
+
+	fileSize, err := fsops.GetFileSize(absPath)
+	common.ErrorHandleDebug(logtag, err)
+
+	// start sending file
+	var count int64
+	count = 0
+
+	// log.Println(logtag, "sync:", path)
+	for {
+		n, _ := fsops.ReadOnce(absPath, databuff, count)
+		count = count + int64(n)
+
+		filedata := databuff[0:n]
+		if n == int(fileSize) {
+			// read once is enough
+			WrappAndSend(base, common.SysSyncFileDirect, filedata, common.IsLastPackage)
+			break
+		} else {
+			WrappAndSend(base, common.SysSyncFileDirect, filedata, common.IsNotLastPacage)
+			if count == fileSize {
+				log.Println(logtag, absPath, "read finished")
+				WrappAndSend(base, common.SysSyncFileDirect, []byte{}, common.IsLastPackage)
+				break
+			}
+		}
+	}
+	fsops.CloseCurrentFile()
 }

@@ -116,6 +116,18 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 				log.Println(logtag, "fetch:", event.FileName)
 				WrappAndSend(c.client, common.SysSyncFileEmpty, []byte(path), common.IsLastPackage)
 			}
+		case common.OpCreate:
+			WrappAndSend(c.client, common.SysOpCreate, []byte(path), common.IsLastPackage)
+		case common.OpModify:
+			WrappAndSend(c.client, common.SysOpModify, []byte(path), common.IsLastPackage)
+		case common.OpRename:
+			WrappAndSend(c.client, common.SysOpRename, []byte(path), common.IsLastPackage)
+		case common.OpRemove:
+			WrappAndSend(c.client, common.SysOpRemove, []byte(path), common.IsLastPackage)
+		case common.OpMkdir:
+			WrappAndSend(c.client, common.SysOpMkdir, []byte(path), common.IsLastPackage)
+		default:
+			log.Panic(logtag, "unknown event")
 		}
 
 		// if handleCore finished current event

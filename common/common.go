@@ -17,11 +17,12 @@ type SysOp uint16
 
 // fs event
 const (
-	OpCreate FsOp = 1 << (32 - 1 - iota)
+	OpCreate FsOp = 200 + iota
 	OpRemove
 	OpModify
 	OpRename
 	OpFetch // need sync file from server
+	OpMkdir
 )
 
 const (
@@ -46,6 +47,12 @@ const (
 	SysSyncFileNotEmpty // sender get this tag
 	SysSyncFileDirect   // receiver get this tag
 	SysSyncFinished     // receiver get this tag
+
+	SysOpRemove
+	SysOpCreate
+	SysOpModify
+	SysOpRename
+	SysOpMkdir
 )
 
 type FsEvent struct {
@@ -117,4 +124,8 @@ func GetByteMd5(b []byte) []byte {
 	md5h.Write(b)
 	result := md5h.Sum([]byte{})
 	return result
+}
+
+func TODO(str string) {
+	log.Println(logtag, "TODO:", str)
 }

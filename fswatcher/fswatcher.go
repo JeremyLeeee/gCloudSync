@@ -60,6 +60,7 @@ func (f *FsWatcher) toFsEvent(event fsnotify.Event) (common.FsEvent, error) {
 		// if it is dir, add to watcher
 		if isdir {
 			f.addDir(event.Name)
+			op = common.OpMkdir
 		}
 	} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 		op = common.OpRemove
