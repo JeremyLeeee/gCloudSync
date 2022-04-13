@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"gcloudsync/common"
 	"gcloudsync/config"
@@ -48,6 +49,9 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 	baseTypeString := reflect.TypeOf(base).String()
 	log.Println(logtag, "current base:", baseTypeString)
 
+	// store file data
+	databuff := make([]byte, config.MaxBufferSize)
+
 	if baseTypeString == "*network.TCPClient" {
 		isClient = true
 		pathPrefix = config.ClientRootPath
@@ -61,9 +65,11 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 		tempBuffer := <-bufferChan
 		buffer = common.MergeArray(buffer, tempBuffer)
 
+		// log.Println(logtag, "bufferlen:", len(tempBuffer))
 		for {
 			buffer, header, data, err = getOnePackageFromBuffer(buffer)
 			if err != nil {
+				// log.Println(logtag, "invalid package")
 				break
 			}
 			// processing different system event
@@ -86,22 +92,23 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				absPath := pathPrefix + path
 				fileSize, err := fsops.GetFileSize(absPath)
 				common.ErrorHandleDebug(logtag, err)
-				data := make([]byte, config.MaxBufferSize)
 
 				// start sending file
 				var count int64
 				count = 0
 
-				log.Println(logtag, "sync:", path)
+				// log.Println(logtag, "sync:", path)
 				for {
-					n, _ := fsops.ReadOnce(absPath, data, count)
+					n, _ := fsops.ReadOnce(absPath, databuff, count)
 					count = count + int64(n)
+
+					filedata := databuff[0:n]
 					if n == int(fileSize) {
 						// read once is enough
-						WrappAndSend(base, common.SysSyncFileDirect, data, common.IsLastPackage)
+						WrappAndSend(base, common.SysSyncFileDirect, filedata, common.IsLastPackage)
 						break
 					} else {
-						WrappAndSend(base, common.SysSyncFileDirect, data, common.IsNotLastPacage)
+						WrappAndSend(base, common.SysSyncFileDirect, filedata, common.IsNotLastPacage)
 						if count == fileSize {
 							log.Println(logtag, absPath, "read finished")
 							WrappAndSend(base, common.SysSyncFileDirect, []byte{}, common.IsLastPackage)
@@ -111,7 +118,21 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				}
 				fsops.CloseCurrentFile()
 			case common.SysSyncFileNotEmpty:
-				// apply rsync algo
+				// receive checksum from sender
+				checksum := data[0:16]
+				absPath := pathPrefix + string(data[16:])
+
+				// validate local file
+				md5 := common.GetFileMd5(absPath)
+				if bytes.Equal(md5, checksum) {
+					// no need to sync
+					// log.Println(logtag, absPath, "no need to sync")
+					WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
+				} else {
+					// apply rsync algo
+					log.Println(logtag, absPath, "need rsync")
+					WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
+				}
 
 			case common.SysSyncFolder:
 				// generate new folder
@@ -130,11 +151,18 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 					eventChan <- event
 				}
 			case common.SysSyncFileDirect:
-				// log.Println(logtag, "write file:", currentFilePath)
+				// log.Println(logtag, "write file:", currentFilePath, "datalen:", len(data))
 				_, err := fsops.Write(currentFilePath, data, 0)
 				common.ErrorHandleDebug(logtag, err)
 				if header.Last == common.IsLastPackage {
 					fsops.CloseCurrentFile()
+					if eventChan != nil {
+						eventDone <- true
+					}
+				}
+			case common.SysSyncFinished:
+				// log.Println(logtag, "finish syncing:", currentFilePath)
+				if eventDone != nil {
 					eventDone <- true
 				}
 			case common.SysDone:

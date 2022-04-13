@@ -8,6 +8,7 @@ const (
 	MaxBufferSize     = 1024 * 1024 * 16
 	BuffChanSize      = 100
 	EventChanSize     = 1000
+	FilePathMaxLength = 200
 )
 
 var ServerRootPath string = "/Users/jeremylee/Documents/code/gcs_root/server"

@@ -2,11 +2,15 @@ package common
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/binary"
+	"io"
 	"log"
 	"os"
 	"strconv"
 )
+
+var logtag string = "[Common]"
 
 type FsOp int
 type SysOp uint16
@@ -41,6 +45,7 @@ const (
 	SysSyncFileEmpty    // sender get this tag
 	SysSyncFileNotEmpty // sender get this tag
 	SysSyncFileDirect   // receiver get this tag
+	SysSyncFinished     // receiver get this tag
 )
 
 type FsEvent struct {
@@ -96,4 +101,20 @@ func MergeArray(b1 []byte, b2 []byte) []byte {
 	buf.Write(b1)
 	buf.Write(b2)
 	return buf.Bytes()
+}
+
+func GetFileMd5(path string) []byte {
+	file, err := os.Open(path)
+	ErrorHandleFatal(logtag, err)
+	md5h := md5.New()
+	io.Copy(md5h, file)
+	result := md5h.Sum([]byte{})
+	return result
+}
+
+func GetByteMd5(b []byte) []byte {
+	md5h := md5.New()
+	md5h.Write(b)
+	result := md5h.Sum([]byte{})
+	return result
 }

@@ -87,23 +87,34 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 	for {
 		event := <-c.eventChan
 		if len(c.eventChan) == 0 {
+			// wait for flushing
+			time.Sleep(time.Second * 1)
 			initDone <- true
 		}
-		// log.Println(logtag, "process event:", event)
+		log.Println(logtag, "process event:", event)
 		currentFilePath = event.FileName
+		path := fsops.RemoveRootPrefix(event.FileName, true)
 		switch event.Op {
 		case common.OpFetch:
 			// sync file
 			if fsops.IsFileExist(event.FileName) {
 				// rsync
 				// log.Println(logtag, "need rsync")
-				continue
+				// get md5
+				checksum := common.GetFileMd5(event.FileName)
+				// package structure:
+				// +------------+--------------------+
+				// |checksum    |filename            |
+				// +------------+--------------------+
+				// <---16bytes-->
+
+				data := common.MergeArray(checksum, []byte(path))
+				log.Println(logtag, "sync:", event.FileName)
+				WrappAndSend(c.client, common.SysSyncFileNotEmpty, data, common.IsLastPackage)
 			} else {
 				// direct file
 				log.Println(logtag, "fetch:", event.FileName)
-				WrappAndSend(c.client, common.SysSyncFileEmpty,
-					[]byte(fsops.RemoveRootPrefix(event.FileName, true)),
-					common.IsLastPackage)
+				WrappAndSend(c.client, common.SysSyncFileEmpty, []byte(path), common.IsLastPackage)
 			}
 		}
 
