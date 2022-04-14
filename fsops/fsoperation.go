@@ -144,7 +144,7 @@ func ReadAll(path string) (b []byte, err error) {
 	for {
 		n, err := Read(path, databuff[offset:], int64(offset))
 		common.ErrorHandleDebug(logtag, err)
-		if n < int(filesize)-offset {
+		if n > 0 {
 			offset = offset + n
 		} else {
 			break
@@ -169,11 +169,13 @@ func WriteAll(path string, b []byte) (err error) {
 	return err
 }
 func WriteAllAt(path string, b []byte, offset int) (err error) {
+	count := 0
 	for {
-		n, err := Write(path, b[offset:], int64(offset))
+		n, err := Write(path, b[count:], int64(offset))
 		common.ErrorHandleDebug(logtag, err)
 		if n < len(b)-offset {
 			offset = offset + n
+			count = count + n
 		} else {
 			break
 		}

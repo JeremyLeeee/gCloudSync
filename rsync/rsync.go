@@ -24,7 +24,7 @@ type CheckSums struct {
 	md5   [16]byte
 }
 
-// generate hash table from file in []byte
+// generate checksums from file in []byte
 // hash table contain differential information structured as below
 // for one block:
 // +---+-----+----------------+---------------------------+
@@ -36,9 +36,8 @@ type CheckSums struct {
 // chunk: related block index of this hash record
 // rolling checksum: 32 bit Adler-32 checksum
 // md5 checksum: 128 bit MD5 checksum
-func GetHashTable(absPath string) []byte {
+func GetCheckSums(absPath string) (result []byte) {
 	var count int64
-	var result []byte
 	var buff []byte
 	data := make([]byte, config.TruncateBlockSize)
 	count = 0
@@ -58,7 +57,7 @@ func GetHashTable(absPath string) []byte {
 		record := getOneRow(key, chunk, rc, md5)
 
 		// add to table
-		common.MergeArray(result, record)
+		result = common.MergeArray(result, record)
 
 		if err != nil {
 			break
@@ -66,7 +65,9 @@ func GetHashTable(absPath string) []byte {
 
 		count = count + int64(n)
 	}
-	return result
+
+	fsops.CloseCurrentFile()
+	return
 }
 
 func getRollingChecksum(b []byte) uint32 {
@@ -187,7 +188,7 @@ func extractLocal(b []byte) (start int, chunk int, err error) {
 // +-----+-------+--------------+
 // where tag is OpLocalData
 func GetDiff(table []byte, absPath string) (diff []byte, err error) {
-	if len(table)%26 != 0 {
+	if len(table)%26 != 0 || len(table) == 0 {
 		return nil, errors.New("invalid table len")
 	}
 	offset := 0
@@ -207,19 +208,21 @@ func GetDiff(table []byte, absPath string) (diff []byte, err error) {
 	// scan file
 	data, err := fsops.ReadAll(absPath)
 	common.ErrorHandleDebug(logtag, err)
-	blockSize := config.TransferBlockSize
+	blockSize := config.TruncateBlockSize
 	diff = make([]byte, 0)
+	offset = 0
 	pos := 0
 	for {
 		if offset+blockSize > len(data) {
 			// last block
-			dr := getDiffDataRecord(uint32(pos), uint32(offset), data[pos:])
+			dr := getDiffDataRecord(uint32(pos), uint32(len(data)), data[pos:])
 			diff = common.MergeArray(diff, dr)
 			break
 		}
 		block := data[offset : offset+blockSize]
 		rc := getRollingChecksum(block)
 		key := getKey(rc)
+
 		if len(m[key]) == 0 {
 			// not match, slide to next block
 			offset++
@@ -233,21 +236,22 @@ func GetDiff(table []byte, absPath string) (diff []byte, err error) {
 					if bytes.Equal(cks.md5[:], md5) {
 						// match
 						// before write local data record, diff data should be write first
-						dr := getDiffDataRecord(uint32(pos), uint32(offset), data[pos:offset])
-						diff = common.MergeArray(diff, dr)
-						// update pos and offset
-						offset = offset + blockSize
-						pos = offset
+						if pos < offset {
+							dr := getDiffDataRecord(uint32(pos), uint32(offset), data[pos:offset])
+							diff = common.MergeArray(diff, dr)
+						}
 						// write local data record
 						record := getLocalDataRecord(uint32(offset), cks.chunk)
 						diff = common.MergeArray(diff, record)
+						// update pos and offset
+						offset = offset + blockSize
+						pos = offset
 						break
 					}
 				}
 			} // for
 		}
 	} // for
-
 	return
 }
 
