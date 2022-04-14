@@ -1,12 +1,15 @@
 package main
 
-import "gcloudsync/rsync"
+import (
+	"gcloudsync/config"
+	"gcloudsync/core"
+	"log"
+)
 
 var logtag string = "[Main]"
 
 func main() {
-	rsync.GenerateHashTable("/Users/jeremylee/Documents/code/handy/handy.zip")
-	// log.Println(logtag, "Root Path:", config.ClientRootPath)
-	// cc := core.NewClientCore(config.ClientRootPath)
-	// cc.StartClient()
+	log.Println(logtag, "Root Path:", config.ClientRootPath)
+	cc := core.NewClientCore(config.ClientRootPath)
+	cc.StartClient()
 }

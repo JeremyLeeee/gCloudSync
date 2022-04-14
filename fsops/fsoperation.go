@@ -88,6 +88,10 @@ func Create(path string) (err error) {
 	return nil
 }
 
+func Rename(old string, new string) (err error) {
+	return os.Rename(old, new)
+}
+
 func WriteOnce(path string, b []byte, off int64) (n int, err error) {
 	file, err := os.OpenFile(path, os.O_WRONLY, 0777)
 	if err != nil {
@@ -129,6 +133,53 @@ func Read(path string, b []byte, off int64) (n int, err error) {
 		isOpened = true
 	}
 	return currentFile.ReadAt(b, off)
+}
+
+func ReadAll(path string) (b []byte, err error) {
+	filesize, err := GetFileSize(path)
+	common.ErrorHandleDebug(logtag, err)
+	databuff := make([]byte, filesize)
+
+	offset := 0
+	for {
+		n, err := Read(path, databuff[offset:], int64(offset))
+		common.ErrorHandleDebug(logtag, err)
+		if n < int(filesize)-offset {
+			offset = offset + n
+		} else {
+			break
+		}
+	}
+	CloseCurrentFile()
+	return databuff, err
+}
+
+func WriteAll(path string, b []byte) (err error) {
+	offset := 0
+	for {
+		n, err := Write(path, b[offset:], int64(offset))
+		common.ErrorHandleDebug(logtag, err)
+		if n < len(b)-offset {
+			offset = offset + n
+		} else {
+			break
+		}
+	}
+	CloseCurrentFile()
+	return err
+}
+func WriteAllAt(path string, b []byte, offset int) (err error) {
+	for {
+		n, err := Write(path, b[offset:], int64(offset))
+		common.ErrorHandleDebug(logtag, err)
+		if n < len(b)-offset {
+			offset = offset + n
+		} else {
+			break
+		}
+	}
+	CloseCurrentFile()
+	return err
 }
 
 // do not forget to call it after read or write
