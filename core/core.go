@@ -7,6 +7,7 @@ import (
 	"gcloudsync/config"
 	"gcloudsync/fsops"
 	"gcloudsync/metadata"
+	"gcloudsync/rsync"
 	"log"
 	"reflect"
 )
@@ -70,6 +71,7 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				break
 			}
 			// processing different system event
+			// log.Println(logtag, "event tag:", header.Tag)
 			switch header.Tag {
 			case common.SysInit:
 				// server respond client init
@@ -104,6 +106,7 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				} else {
 					// apply rsync algo
 					log.Println(logtag, absPath, "need rsync")
+					currentFilePath = absPath
 					WrappAndSend(base, common.SysOpModify, []byte(path), common.IsLastPackage)
 				}
 			case common.SysSyncFolder:
@@ -129,37 +132,71 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 					fsops.CloseCurrentFile()
 					if eventChan != nil {
 						eventDone <- true
+					} else {
+						// server receive file
+						WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
 					}
 				}
 			case common.SysSyncFinished:
-				// log.Println(logtag, "finish syncing:", currentFilePath)
+				log.Println(logtag, "sync finished:", currentFilePath)
 				if eventDone != nil {
 					eventDone <- true
 				}
 
 			case common.SysOpCreate:
 				absPath := pathPrefix + string(data)
-
 				// 1. touch
 				err := fsops.Create(absPath)
+				log.Println(logtag, "create:", absPath)
 				common.ErrorHandleDebug(logtag, err)
 				// 2. sync
+				currentFilePath = absPath
+				WrappAndSend(base, common.SysSyncFileEmpty, []byte(string(data)), common.IsLastPackage)
 
 			case common.SysOpRemove:
 				absPath := pathPrefix + string(data)
 				err := fsops.Delete(absPath)
+				log.Println(logtag, "remove:", absPath)
 				common.ErrorHandleDebug(logtag, err)
+				WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
 
 			case common.SysOpMkdir:
 				// generate new folder
 				absPath := pathPrefix + string(data)
 				err = fsops.Makedir(absPath)
+				log.Println(logtag, "mkdir:", absPath)
 				common.ErrorHandleDebug(logtag, err)
+				WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
+
 			case common.SysOpModify:
+				// both client and server can get here
+				// generate checksum
+				path := string(data)
+				absPath := pathPrefix + path
+
+				currentFilePath = absPath
+				cks := rsync.GetCheckSums(absPath)
+
+				log.Println(logtag, "modifying:", absPath)
+				WrappAndSend(base, common.SysSyncGenerateDiff, cks, common.IsLastPackage)
+
+			case common.SysSyncGenerateDiff:
+				diff, err := rsync.GetDiff(data, currentFilePath)
+				common.ErrorHandleDebug(logtag, err)
+
+				WrappAndSend(base, common.SysSyncReformFile, diff, common.IsLastPackage)
+
+			case common.SysSyncReformFile:
+
+				err := rsync.ReformFile(data, currentFilePath)
+				log.Println(logtag, "file reformed:", currentFilePath)
+				common.ErrorHandleDebug(logtag, err)
+
+				WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
+
 				if eventDone != nil {
 					eventDone <- true
 				}
-				// generate checksum
 
 			case common.SysDone:
 				done <- true

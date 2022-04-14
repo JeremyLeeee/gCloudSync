@@ -76,7 +76,7 @@ func (s *TCPServer) readFromClient() {
 
 		buff := buffer[0:n]
 		if len(buff) != 0 {
-			// log.Println(logtag, "receive: "+string(buff))
+			// log.Println(logtag, "receive len:", len(buff))
 			s.buffchan <- buff
 		}
 	}

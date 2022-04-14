@@ -77,21 +77,23 @@ func (c *ClientCore) startWatching() {
 	// dispatch fs event
 	for {
 		event := <-fschan
-		log.Println(logtag, event)
+		// log.Println(logtag, event)
 		c.eventChan <- event
 	}
 }
 
 func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 	log.Println(logtag, "start event loop...")
+	inited := false
 	for {
 		event := <-c.eventChan
-		if len(c.eventChan) == 0 {
+		if len(c.eventChan) == 0 && !inited {
 			// wait for flushing
 			time.Sleep(time.Second * 1)
 			initDone <- true
+			inited = true
 		}
-		log.Println(logtag, "process event:", event)
+		// log.Println(logtag, "process event:", event)
 		currentFilePath = event.FileName
 		path := fsops.RemoveRootPrefix(event.FileName, true)
 		switch event.Op {
@@ -109,7 +111,7 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 				// <---16bytes-->
 
 				data := common.MergeArray(checksum, []byte(path))
-				log.Println(logtag, "sync:", event.FileName)
+				// log.Println(logtag, "sync:", event.FileName)
 				WrappAndSend(c.client, common.SysSyncFileNotEmpty, data, common.IsLastPackage)
 			} else {
 				// direct file

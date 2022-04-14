@@ -213,6 +213,7 @@ func GetDiff(table []byte, absPath string) (diff []byte, err error) {
 	offset = 0
 	pos := 0
 	for {
+		// log.Println(logtag, "pos:", pos, "offset:", offset, "datalen:", len(data))
 		if offset+blockSize > len(data) {
 			// last block
 			dr := getDiffDataRecord(uint32(pos), uint32(len(data)), data[pos:])
@@ -229,12 +230,16 @@ func GetDiff(table []byte, absPath string) (diff []byte, err error) {
 		} else {
 			// key match
 			// check rolling checksum
+			matched := false
+			// log.Println(logtag, "key matched")
 			for _, cks := range m[key] {
 				if cks.rc == rc {
 					// check md5
+					// log.Println(logtag, "rc matched")
 					md5 := common.GetByteMd5(block)
 					if bytes.Equal(cks.md5[:], md5) {
 						// match
+						// log.Println(logtag, "md5 matched")
 						// before write local data record, diff data should be write first
 						if pos < offset {
 							dr := getDiffDataRecord(uint32(pos), uint32(offset), data[pos:offset])
@@ -246,10 +251,15 @@ func GetDiff(table []byte, absPath string) (diff []byte, err error) {
 						// update pos and offset
 						offset = offset + blockSize
 						pos = offset
+						// in case key match but rc or md5 not match
+						matched = true
 						break
 					}
 				}
 			} // for
+			if !matched {
+				offset++
+			}
 		}
 	} // for
 	return
@@ -306,6 +316,6 @@ func ReformFile(diff []byte, absPath string) (err error) {
 	fsops.CloseCurrentFile()
 	fsops.Delete(absPath)
 	fsops.Rename(tmpPath, absPath)
-	log.Println(logtag, "reform file done.")
+	// log.Println(logtag, "reform file done.")
 	return
 }

@@ -47,6 +47,8 @@ const (
 	SysSyncFileNotEmpty
 	SysSyncFileDirect
 	SysSyncFinished
+	SysSyncGenerateDiff
+	SysSyncReformFile
 
 	SysOpRemove
 	SysOpCreate
