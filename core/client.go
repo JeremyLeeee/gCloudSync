@@ -102,6 +102,13 @@ func (c *ClientCore) startWatching() {
 func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 	log.Println(logtag, "start event loop...")
 	inited := false
+	if len(c.eventChan) == 0 && !inited {
+		// wait for flushing
+		time.Sleep(time.Second * 1)
+		initDone <- true
+		inited = true
+		WrappAndSend(c.client, common.SysInitFinished, []byte{}, common.IsLastPackage)
+	}
 	for {
 		event := <-c.eventChan
 		if len(c.eventChan) == 0 && !inited {
