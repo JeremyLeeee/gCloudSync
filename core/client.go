@@ -8,7 +8,6 @@ import (
 	"gcloudsync/network"
 	"log"
 	"strings"
-	"time"
 )
 
 type ClientCore struct {
@@ -63,13 +62,6 @@ func (c *ClientCore) StartClient() {
 	// before start watching fs
 	<-initDone
 	// next start watching fs
-	// fall into another loop
-
-	// in case write file trigger watcher
-
-	time.Sleep(time.Second * 1)
-	log.Println(logtag, "sync all files finished, wait for flushing...")
-	time.Sleep(time.Second * 2)
 
 	go c.startWatching()
 
@@ -104,21 +96,17 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 	log.Println(logtag, "start event loop...")
 	inited := false
 	if len(c.eventChan) == 0 && !inited {
-		// wait for flushing
-		time.Sleep(time.Second * 1)
 		initDone <- true
 		inited = true
 		WrappAndSend(c.client, common.SysInitFinished, []byte{}, common.IsLastPackage)
 	}
 	for {
-		event := <-c.eventChan
 		if len(c.eventChan) == 0 && !inited {
-			// wait for flushing
-			time.Sleep(time.Second * 1)
 			initDone <- true
 			inited = true
 			WrappAndSend(c.client, common.SysInitFinished, []byte{}, common.IsLastPackage)
 		}
+		event := <-c.eventChan
 		// log.Println(logtag, "process event:", event)
 		currentFilePath = event.FileName
 		path := fsops.RemoveRootPrefix(event.FileName, true)
@@ -150,20 +138,35 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 				WrappAndSend(c.client, common.SysSyncFileEmpty, []byte(path), common.IsLastPackage)
 			}
 		case common.OpCreate:
-			log.Println(logtag, "create:", event.FileName)
+			if inited {
+				log.Println(logtag, "create:", event.FileName)
+			}
 			WrappAndSend(c.client, common.SysOpCreate, []byte(path), common.IsLastPackage)
 		case common.OpModify:
-			log.Println(logtag, "modify:", event.FileName)
+			if inited {
+				log.Println(logtag, "modify:", event.FileName)
+			}
 			WrappAndSend(c.client, common.SysOpModify, []byte(path), common.IsLastPackage)
 		case common.OpRename:
-			log.Println(logtag, "rename:", event.FileName)
-			WrappAndSend(c.client, common.SysOpRename, []byte(path), common.IsLastPackage)
+			if inited {
+				log.Println(logtag, "rename from:", event.OriginFile)
+				log.Println(logtag, "to:", event.FileName)
+			}
+			data := RenameEventToBytes(event)
+			WrappAndSend(c.client, common.SysOpRename, []byte(data), common.IsLastPackage)
 		case common.OpRemove:
-			log.Println(logtag, "remove:", event.FileName)
+			if inited {
+				log.Println(logtag, "remove:", event.FileName)
+			}
 			WrappAndSend(c.client, common.SysOpRemove, []byte(path), common.IsLastPackage)
 		case common.OpMkdir:
-			log.Println(logtag, "mkdir:", event.FileName)
+			if inited {
+				log.Println(logtag, "mkdir:", event.FileName)
+			}
 			WrappAndSend(c.client, common.SysOpMkdir, []byte(path), common.IsLastPackage)
+		case common.OpChmod:
+			// do nothing
+			continue
 		default:
 			log.Panic(logtag, "unknown event")
 		}

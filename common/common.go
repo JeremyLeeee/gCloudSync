@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 )
 
 var logtag string = "[Common]"
@@ -26,6 +25,7 @@ const (
 	OpRename
 	OpFetch // need sync file from server
 	OpMkdir
+	OpChmod
 )
 
 const (
@@ -44,6 +44,7 @@ const (
 	SysDone
 	SysCheckConsistence
 	SysInit
+	SysInitUpload
 	SysInitSyncConfig
 	SysInitSyncFolder
 	SysInitSyncFile
@@ -60,12 +61,12 @@ const (
 	SysOpModify
 	SysOpRename
 	SysOpMkdir
+	SysOpChmod
 )
 
 type FsEvent struct {
 	Op         FsOp
 	FileName   string
-	IsDir      bool
 	OriginFile string // for rename event
 }
 
@@ -83,9 +84,11 @@ func (fe FsEvent) String() string {
 		eventString = "remove"
 	case OpFetch:
 		eventString = "fetch"
+	case OpChmod:
+		eventString = "chmod"
 	}
 
-	return eventString + ": " + fe.FileName + ", isdir: " + strconv.FormatBool(fe.IsDir)
+	return eventString + ": " + fe.FileName
 }
 
 func ErrorHandleFatal(tag string, err error) {

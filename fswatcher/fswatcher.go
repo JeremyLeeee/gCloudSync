@@ -60,24 +60,20 @@ func (f *FsWatcher) toFsEvent(event fsnotify.Event) (common.FsEvent, error) {
 		// if it is dir, add to watcher
 		if isdir {
 			f.addDir(event.Name)
-			op = common.OpMkdir
 		}
-	} else if event.Op&fsnotify.Remove == fsnotify.Remove {
-		op = common.OpRemove
+	} else if event.Op&fsnotify.Rename == fsnotify.Rename {
+		op = common.OpRename
 	} else if event.Op&fsnotify.Write == fsnotify.Write {
 		op = common.OpModify
-	} else if event.Op&fsnotify.Rename == fsnotify.Rename {
-		if ok, _ := fsops.IsFolder(event.Name); ok {
-			op = common.OpRename
-		} else {
-			op = common.OpRemove
-		}
-
+	} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+		op = common.OpRemove
+	} else if event.Op&fsnotify.Chmod == fsnotify.Chmod {
+		op = common.OpChmod
 	} else {
 		return common.FsEvent{}, errors.New("unknown event")
 	}
 
-	return common.FsEvent{Op: op, FileName: event.Name, IsDir: isdir}, nil
+	return common.FsEvent{Op: op, FileName: event.Name}, nil
 }
 
 func (f *FsWatcher) addAll() (err error) {
@@ -106,17 +102,45 @@ func (f *FsWatcher) StartWatching() {
 
 	done := make(chan bool)
 	go func() {
+		var lastEvent common.FsEvent
 		for {
 			select {
 			case event, ok := <-f.watcher.Events:
 				if !ok {
 					return
 				}
-				// log.Println(logtag, "event:", event)
 				fsevent, err := f.toFsEvent(event)
-				if err == nil {
+				common.ErrorHandleDebug(logtag, err)
+
+				// due to the bug of fsnotify
+				// some events should be detected as combination below
+				// rename: 1.create, 2.rename
+				// remove: 1.chmod, 2.rename
+
+				if lastEvent.Op == common.OpCreate {
+					if fsevent.Op == common.OpRename {
+						// if it is rename event
+						// merge two events into one
+						fsevent.OriginFile = fsevent.FileName
+						fsevent.FileName = lastEvent.FileName
+						f.fschan <- fsevent
+					} else {
+						f.fschan <- lastEvent
+						f.fschan <- fsevent
+					}
+				} else {
+					if fsevent.Op != common.OpCreate && fsevent.Op != common.OpRename {
+						f.fschan <- fsevent
+					}
+				}
+
+				if lastEvent.Op == common.OpChmod && fsevent.Op == common.OpRename {
+					fsevent.Op = common.OpRemove
 					f.fschan <- fsevent
 				}
+
+				lastEvent = fsevent
+
 			case err, ok := <-f.watcher.Errors:
 				if !ok {
 					return

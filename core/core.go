@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"gcloudsync/common"
 	"gcloudsync/config"
@@ -83,7 +84,27 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				for _, filePath := range flist {
 					syncOneFileSend(fsops.RemoveRootPrefix(filePath, false), base, isClient)
 				}
-				WrappAndSend(base, common.SysDone, []byte{}, common.IsLastPackage)
+				WrappAndSend(base, common.SysInitUpload, []byte{}, common.IsLastPackage)
+
+			case common.SysInitUpload:
+				// for files not exist in server
+				// upload to keep in consistance
+				log.Println(logtag, "upload new files...")
+				flist := fsops.GetAllFile(config.ClientRootPath)
+				common.ErrorHandleDebug(logtag, err)
+				var op common.FsOp
+				// add to event loop
+				for _, filePath := range flist {
+					if ok, _ := fsops.IsFolder(filePath); ok {
+						op = common.OpMkdir
+					} else {
+						op = common.OpCreate
+					}
+					event := common.FsEvent{Op: op, FileName: filePath}
+					eventChan <- event
+				}
+
+				done <- true
 
 			case common.SysInitSyncConfig:
 				cg := config.GetConfig()
@@ -106,7 +127,7 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 
 				// add to event loop
 				if eventChan != nil {
-					event := common.FsEvent{Op: common.OpFetch, FileName: path, IsDir: false}
+					event := common.FsEvent{Op: common.OpFetch, FileName: path}
 					eventChan <- event
 				}
 
@@ -180,6 +201,15 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				absPath := pathPrefix + string(data)
 				err = fsops.Makedir(absPath)
 				log.Println(logtag, "mkdir:", absPath)
+				common.ErrorHandleDebug(logtag, err)
+				WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
+			case common.SysOpRename:
+				event := BytesToRenameEvent(data)
+				new := pathPrefix + event.FileName
+				old := pathPrefix + event.OriginFile
+				log.Println(logtag, "rename from:", old)
+				log.Println(logtag, "to:", new)
+				err := fsops.Rename(old, new)
 				common.ErrorHandleDebug(logtag, err)
 				WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
 
@@ -301,4 +331,43 @@ func directFileSend(base interface{}, absPath string) {
 		}
 	}
 	fsops.CloseCurrentFile()
+}
+
+func RenameEventToBytes(fe common.FsEvent) (b []byte) {
+	if fe.Op == common.OpRename {
+		// package structure:
+		// +-----+----------+-----+----------+
+		// | len | new path | len | old path |
+		// +-----+----------+-----+----------+
+		// |  4  |          |  4  |          |
+		// +-----+----------+-----+----------+
+		var buf bytes.Buffer
+		b := make([]byte, 4)
+
+		new := fsops.RemoveRootPrefix(fe.FileName, true)
+		old := fsops.RemoveRootPrefix(fe.OriginFile, true)
+		binary.BigEndian.PutUint32(b, uint32(len(new)))
+		buf.Write([]byte(b))
+		buf.Write([]byte(new))
+		binary.BigEndian.PutUint32(b, uint32(len(old)))
+		buf.Write([]byte(b))
+		buf.Write([]byte(old))
+
+		return buf.Bytes()
+	}
+	return b
+}
+
+func BytesToRenameEvent(b []byte) (fe common.FsEvent) {
+
+	newlen := int(binary.BigEndian.Uint32(b[0:4]))
+	new := string(b[4 : 4+newlen])
+	oldlen := int(binary.BigEndian.Uint32(b[4+newlen : 8+newlen]))
+	old := string(b[8+newlen : 8+newlen+oldlen])
+
+	fe.FileName = new
+	fe.OriginFile = old
+	fe.Op = common.OpRename
+
+	return
 }
