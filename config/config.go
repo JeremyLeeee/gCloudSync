@@ -21,18 +21,22 @@ type Config struct {
 	RootPath          string
 }
 
+type ServerRoot struct {
+	RootPath string
+}
+
 // configurable
 var ServerIP string = "127.0.0.1"
 var TruncateBlockSize int = 1024
 var TransferBlockSize int = 1024 * 4
 var MaxBufferSize int = 1024 * 1024 * 16
-var ClientRootPath string = "/Users/jeremylee/Documents/code/gcs_root/client"
+var ClientRootPath string = "./"
 
 // un-configurable
-var Port string = "8888"
+var Port string = "8909"
 var BuffChanSize int = 1000
 var EventChanSize int = 1000
-var ServerRootPath string = "/Users/jeremylee/Documents/code/gcs_root/server"
+var ServerRootPath string = "./"
 
 var config *Config
 var once sync.Once
@@ -105,4 +109,26 @@ func PrintCurrentConfig() {
 	if ClientRootPath != "" {
 		log.Println(logtag, "ClientRootPath:", ClientRootPath)
 	}
+}
+
+func ConfigServerRootPath(path string) error {
+	file, err := os.Open(path)
+
+	if err != nil {
+		return errors.New("open json failed")
+	}
+	defer file.Close()
+
+	fileinfo, err := os.Stat(path)
+	common.ErrorHandleDebug(logtag, err)
+	filesize := fileinfo.Size()
+
+	data := make([]byte, filesize)
+	_, err = file.Read(data)
+	common.ErrorHandleDebug(logtag, err)
+
+	s := ServerRoot{}
+	err = json.Unmarshal(data, &s)
+	ServerRootPath = s.RootPath
+	return err
 }
