@@ -7,6 +7,7 @@ import (
 	"gcloudsync/fswatcher"
 	"gcloudsync/network"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -121,6 +122,11 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 		// log.Println(logtag, "process event:", event)
 		currentFilePath = event.FileName
 		path := fsops.RemoveRootPrefix(event.FileName, true)
+
+		// emit macos .DS_Store file
+		if strings.Compare(event.FileName[len(event.FileName)-8:], "DS_Store") == 0 {
+			continue
+		}
 		switch event.Op {
 		case common.OpFetch:
 			// sync file
@@ -150,6 +156,7 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 			log.Println(logtag, "modify:", event.FileName)
 			WrappAndSend(c.client, common.SysOpModify, []byte(path), common.IsLastPackage)
 		case common.OpRename:
+			log.Println(logtag, "rename:", event.FileName)
 			WrappAndSend(c.client, common.SysOpRename, []byte(path), common.IsLastPackage)
 		case common.OpRemove:
 			log.Println(logtag, "remove:", event.FileName)

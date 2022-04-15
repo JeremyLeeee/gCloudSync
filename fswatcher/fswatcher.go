@@ -67,7 +67,12 @@ func (f *FsWatcher) toFsEvent(event fsnotify.Event) (common.FsEvent, error) {
 	} else if event.Op&fsnotify.Write == fsnotify.Write {
 		op = common.OpModify
 	} else if event.Op&fsnotify.Rename == fsnotify.Rename {
-		op = common.OpRemove
+		if ok, _ := fsops.IsFolder(event.Name); ok {
+			op = common.OpRename
+		} else {
+			op = common.OpRemove
+		}
+
 	} else {
 		return common.FsEvent{}, errors.New("unknown event")
 	}

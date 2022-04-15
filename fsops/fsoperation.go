@@ -82,7 +82,8 @@ func Delete(path string) (err error) {
 
 func Create(path string) (err error) {
 	if !IsFileExist(path) {
-		_, err := os.Create(path)
+		file, err := os.Create(path)
+		file.Close()
 		return err
 	}
 	return nil
