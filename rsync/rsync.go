@@ -50,7 +50,7 @@ func GetCheckSums(absPath string) (result []byte) {
 			buff = data[0:n]
 		}
 		// calculate record
-		chunk := uint32(count / config.TruncateBlockSize)
+		chunk := uint32(count / int64(config.TruncateBlockSize))
 		rc := getRollingChecksum(buff)
 		md5 := common.GetByteMd5(buff)
 		key := getKey(rc)

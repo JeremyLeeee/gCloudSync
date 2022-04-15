@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -11,6 +12,8 @@ import (
 )
 
 var logtag string = "[Common]"
+
+var Version string = "0.1.0"
 
 type FsOp int
 type SysOp uint16
@@ -41,8 +44,10 @@ const (
 	SysDone
 	SysCheckConsistence
 	SysInit
-	SysSyncFolder
-	SysSyncFileBegin
+	SysInitSyncConfig
+	SysInitSyncFolder
+	SysInitSyncFile
+	SysInitFinished
 	SysSyncFileEmpty
 	SysSyncFileNotEmpty
 	SysSyncFileDirect
@@ -130,4 +135,14 @@ func GetByteMd5(b []byte) []byte {
 
 func TODO(str string) {
 	log.Println(logtag, "TODO:", str)
+}
+
+func PrintLogo() {
+	fmt.Println("             ________                _______                 ")
+	fmt.Println("      ____ _/ ____/ /___  __  ______/ / ___/__  ______  _____")
+	fmt.Println("     / __ `/ /   / / __ \\/ / / / __  /\\__ \\/ / / / __ \\/ ___/")
+	fmt.Println("    / /_/ / /___/ / /_/ / /_/ / /_/ /___/ / /_/ / / / / /__  ")
+	fmt.Println("    \\__, /\\____/_/\\____/\\__,_/\\__,_//____/\\__, /_/ /_/\\___/  ")
+	fmt.Println("   /____/                                /____/         ")
+	fmt.Println("                                                version:", Version)
 }

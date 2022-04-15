@@ -48,7 +48,7 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 	var pathPrefix string
 
 	baseTypeString := reflect.TypeOf(base).String()
-	log.Println(logtag, "current base:", baseTypeString)
+	// log.Println(logtag, "current base:", baseTypeString)
 
 	if baseTypeString == "*network.TCPClient" {
 		isClient = true
@@ -85,6 +85,35 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				}
 				WrappAndSend(base, common.SysDone, []byte{}, common.IsLastPackage)
 
+			case common.SysInitSyncConfig:
+				cg := config.GetConfig()
+				cg.ConfigFromBytes(data)
+				log.Println(logtag, "config sync finished.")
+
+				config.PrintCurrentConfig()
+				WrappAndSend(base, common.SysDone, []byte{}, common.IsLastPackage)
+
+			case common.SysInitSyncFolder:
+				absPath := pathPrefix + string(data)
+				if !fsops.IsFileExist(absPath) {
+					fsops.Makedir(absPath)
+				}
+
+			case common.SysInitSyncFile:
+				// entry for transfering file
+				// log.Println(logtag, "file to be transfered:", string(data))
+				path := pathPrefix + string(data)
+
+				// add to event loop
+				if eventChan != nil {
+					event := common.FsEvent{Op: common.OpFetch, FileName: path, IsDir: false}
+					eventChan <- event
+				}
+
+			case common.SysInitFinished:
+				// only server will receive this
+				log.Println(logtag, "client init finished.")
+
 			case common.SysSyncFileEmpty:
 				// transfer the file directly
 				path := string(data)
@@ -109,21 +138,7 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 					currentFilePath = absPath
 					WrappAndSend(base, common.SysOpModify, []byte(path), common.IsLastPackage)
 				}
-			case common.SysSyncFolder:
-				absPath := pathPrefix + string(data)
-				if !fsops.IsFileExist(absPath) {
-					fsops.Makedir(absPath)
-				}
-			case common.SysSyncFileBegin:
-				// entry for transfering file
-				// log.Println(logtag, "file to be transfered:", string(data))
-				path := pathPrefix + string(data)
 
-				// add to event loop
-				if eventChan != nil {
-					event := common.FsEvent{Op: common.OpFetch, FileName: path, IsDir: false}
-					eventChan <- event
-				}
 			case common.SysSyncFileDirect:
 				// log.Println(logtag, "write file:", currentFilePath, "datalen:", len(data))
 				_, err := fsops.Write(currentFilePath, data, 0)
@@ -174,6 +189,11 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				path := string(data)
 				absPath := pathPrefix + path
 
+				// if file not exist, create one
+				if fsops.IsFileExist(absPath) {
+					fsops.Create(absPath)
+				}
+
 				currentFilePath = absPath
 				cks := rsync.GetCheckSums(absPath)
 
@@ -189,7 +209,7 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 			case common.SysSyncReformFile:
 
 				err := rsync.ReformFile(data, currentFilePath)
-				log.Println(logtag, "file reformed:", currentFilePath)
+				log.Println(logtag, "sync finished:", currentFilePath)
 				common.ErrorHandleDebug(logtag, err)
 
 				WrappAndSend(base, common.SysSyncFinished, []byte{}, common.IsLastPackage)
@@ -222,9 +242,9 @@ func syncOneFileSend(path string, base interface{}, isClient bool) {
 	ok, _ = fsops.IsFolder(absPath)
 
 	if ok {
-		WrappAndSend(base, common.SysSyncFolder, []byte(path), common.IsLastPackage)
+		WrappAndSend(base, common.SysInitSyncFolder, []byte(path), common.IsLastPackage)
 	} else {
-		WrappAndSend(base, common.SysSyncFileBegin, []byte(path), common.IsLastPackage)
+		WrappAndSend(base, common.SysInitSyncFile, []byte(path), common.IsLastPackage)
 	}
 }
 

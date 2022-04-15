@@ -1,0 +1,6 @@
+{
+    "ServerIP": "127.0.0.1",
+    "TruncateBlockSize": 1024,
+    "TransferBlockSize": 4096,
+    "RootPath": "/Users/jeremylee/Documents/code/gcs_root/client"
+}

@@ -40,11 +40,21 @@ func (c *ClientCore) StartClient() {
 	// start receiving
 	go c.client.ReadFromServer()
 
+	// init config
+
+	c.syncConfig()
+	log.Println(logtag, "sync config...")
+
+	// init config ok
+	<-done
+
+	log.Println(logtag, "sync config ok.")
+
 	// send init signal
 	WrappAndSend(c.client, common.SysInit, []byte{}, common.IsLastPackage)
-	log.Println(logtag, "initializing...")
+	log.Println(logtag, "sync all files...")
 
-	// init ok
+	// init file list ok
 	<-done
 
 	go c.startEventLoop(c.eventDone, initDone)
@@ -55,13 +65,20 @@ func (c *ClientCore) StartClient() {
 	// fall into another loop
 
 	// in case write file trigger watcher
-	log.Println(logtag, "init fishied, wait for flushing...")
+
+	time.Sleep(time.Second * 1)
+	log.Println(logtag, "sync all files finished, wait for flushing...")
 	time.Sleep(time.Second * 2)
 
 	go c.startWatching()
 
 	<-done
 	close(done)
+}
+
+func (c *ClientCore) syncConfig() {
+	data := config.GetConfig().ToBytes()
+	WrappAndSend(c.client, common.SysInitSyncConfig, data, common.IsLastPackage)
 }
 
 // start watching fs
@@ -92,6 +109,7 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 			time.Sleep(time.Second * 1)
 			initDone <- true
 			inited = true
+			WrappAndSend(c.client, common.SysInitFinished, []byte{}, common.IsLastPackage)
 		}
 		// log.Println(logtag, "process event:", event)
 		currentFilePath = event.FileName
@@ -119,14 +137,18 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 				WrappAndSend(c.client, common.SysSyncFileEmpty, []byte(path), common.IsLastPackage)
 			}
 		case common.OpCreate:
+			log.Println(logtag, "create:", event.FileName)
 			WrappAndSend(c.client, common.SysOpCreate, []byte(path), common.IsLastPackage)
 		case common.OpModify:
+			log.Println(logtag, "modify:", event.FileName)
 			WrappAndSend(c.client, common.SysOpModify, []byte(path), common.IsLastPackage)
 		case common.OpRename:
 			WrappAndSend(c.client, common.SysOpRename, []byte(path), common.IsLastPackage)
 		case common.OpRemove:
+			log.Println(logtag, "remove:", event.FileName)
 			WrappAndSend(c.client, common.SysOpRemove, []byte(path), common.IsLastPackage)
 		case common.OpMkdir:
+			log.Println(logtag, "mkdir:", event.FileName)
 			WrappAndSend(c.client, common.SysOpMkdir, []byte(path), common.IsLastPackage)
 		default:
 			log.Panic(logtag, "unknown event")

@@ -34,7 +34,7 @@ func (s *TCPServer) Listen() {
 	for {
 		// new connection from client
 		conn, err := listener.Accept()
-		log.Println(logtag, "new connection")
+		log.Println(logtag, "new connection from:", conn.RemoteAddr())
 		if err != nil {
 			log.Println(err)
 			continue
