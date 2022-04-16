@@ -2,8 +2,9 @@ package fsops
 
 import (
 	"errors"
-	"gcloudsync/common"
-	"gcloudsync/config"
+	"gcloudsync/internal/common"
+	"gcloudsync/internal/config"
+
 	"io/ioutil"
 	"log"
 	"os"

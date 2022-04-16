@@ -2,8 +2,8 @@ package fswatcher
 
 import (
 	"errors"
-	"gcloudsync/common"
-	"gcloudsync/fsops"
+	"gcloudsync/internal/common"
+	"gcloudsync/internal/fsops"
 
 	"github.com/fsnotify/fsnotify"
 )

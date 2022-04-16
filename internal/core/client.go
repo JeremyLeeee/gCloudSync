@@ -1,11 +1,11 @@
 package core
 
 import (
-	"gcloudsync/common"
-	"gcloudsync/config"
-	"gcloudsync/fsops"
-	"gcloudsync/fswatcher"
-	"gcloudsync/network"
+	"gcloudsync/internal/common"
+	"gcloudsync/internal/config"
+	"gcloudsync/internal/fsops"
+	"gcloudsync/internal/fswatcher"
+	"gcloudsync/internal/network"
 	"log"
 	"strings"
 )

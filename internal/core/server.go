@@ -1,8 +1,8 @@
 package core
 
 import (
-	"gcloudsync/config"
-	"gcloudsync/network"
+	"gcloudsync/internal/config"
+	"gcloudsync/internal/network"
 	"log"
 )
 

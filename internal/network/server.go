@@ -1,8 +1,8 @@
 package network
 
 import (
-	"gcloudsync/common"
-	"gcloudsync/config"
+	"gcloudsync/internal/common"
+	"gcloudsync/internal/config"
 	"log"
 	"net"
 )

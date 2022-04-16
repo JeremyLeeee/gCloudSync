@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"gcloudsync/common"
+	"gcloudsync/internal/common"
 )
 
 var Sig = [14]byte{103, 67, 108, 111, 117, 100, 83, 121, 110, 99, 50, 48, 50, 50}
