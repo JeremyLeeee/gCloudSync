@@ -16,6 +16,8 @@ import (
 var logtag string = "[Core]"
 var currentFilePath string
 
+var serverFileList = make(map[string]int)
+
 func WrappAndSend(base interface{}, op common.SysOp, data []byte, last uint32) error {
 	// get header
 	header := metadata.NewHeader(uint32(len(data)), op, last)
@@ -95,6 +97,9 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 				var op common.FsOp
 				// add to event loop
 				for _, filePath := range flist {
+					if serverFileList[filePath] == 1 {
+						continue
+					}
 					if ok, _ := fsops.IsFolder(filePath); ok {
 						op = common.OpMkdir
 					} else {
@@ -116,6 +121,9 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 
 			case common.SysInitSyncFolder:
 				absPath := pathPrefix + string(data)
+
+				serverFileList[absPath] = 1
+
 				if !fsops.IsFileExist(absPath) {
 					fsops.Makedir(absPath)
 				}
@@ -123,11 +131,13 @@ func handleCore(base interface{}, bufferChan chan []byte, done chan bool,
 			case common.SysInitSyncFile:
 				// entry for transfering file
 				// log.Println(logtag, "file to be transfered:", string(data))
-				path := pathPrefix + string(data)
+				absPath := pathPrefix + string(data)
+
+				serverFileList[absPath] = 1
 
 				// add to event loop
 				if eventChan != nil {
-					event := common.FsEvent{Op: common.OpFetch, FileName: path}
+					event := common.FsEvent{Op: common.OpFetch, FileName: absPath}
 					eventChan <- event
 				}
 

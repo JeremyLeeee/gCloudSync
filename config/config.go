@@ -29,7 +29,7 @@ type ServerRoot struct {
 var ServerIP string = "127.0.0.1"
 var TruncateBlockSize int = 1024
 var TransferBlockSize int = 1024 * 4
-var MaxBufferSize int = 1024 * 1024 * 16
+var MaxBufferSize int = 1024 * 1024 * 1024
 var ClientRootPath string = "./"
 
 // un-configurable

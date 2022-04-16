@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
+	"strings"
 )
 
 var currentFile *os.File
@@ -227,4 +229,15 @@ func GetFileSize(path string) (size int64, err error) {
 		return 0, err
 	}
 	return fileinfo.Size(), nil
+}
+
+func GetFolder(path string) (folder string) {
+	c := "/"
+	if strings.Contains(runtime.GOOS, "windows") {
+		c = "\\"
+	}
+	tokens := strings.Split(path, c)
+	filename := tokens[len(tokens)-1]
+	folder = path[0 : len(path)-len(filename)-1]
+	return
 }

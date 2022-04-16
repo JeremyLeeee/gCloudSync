@@ -12,6 +12,7 @@ var logtag string = "[FsWatcher]"
 
 type FsWatcher struct {
 	path    string
+	fileMap map[string]int
 	fschan  chan common.FsEvent
 	watcher *fsnotify.Watcher
 }
@@ -21,6 +22,14 @@ func NewFsWatcher(path string) *FsWatcher {
 	// set monitor path
 	err := f.setPath(path)
 	common.ErrorHandleFatal(logtag, err)
+	// add all file to map
+	f.fileMap = make(map[string]int)
+	flist := fsops.GetAllFile(path)
+
+	for _, file := range flist {
+		f.fileMap[file] = 1
+	}
+
 	// get a watcher
 	f.watcher, err = fsnotify.NewWatcher()
 	common.ErrorHandleDebug(logtag, err)
@@ -97,12 +106,52 @@ func (f *FsWatcher) addDir(path string) (err error) {
 	return
 }
 
+func (f *FsWatcher) getEvent(fsevent common.FsEvent) (common.FsEvent, error) {
+	flist := fsops.GetAllFile(f.path)
+
+	if len(f.fileMap) == len(flist) {
+		// rename or modify
+		if fsevent.Op == common.OpModify {
+			return fsevent, nil
+		} else if fsevent.Op == common.OpRename {
+			// rename
+			// find new file name
+			for _, file := range flist {
+				if f.fileMap[file] == 0 {
+					fsevent.OriginFile = fsevent.FileName
+					fsevent.FileName = file
+					return fsevent, nil
+				}
+			}
+		} else {
+			return fsevent, errors.New("invalid event")
+		}
+	} else if len(f.fileMap) < len(flist) {
+		// create
+		return fsevent, nil
+	} else if len(f.fileMap) > len(flist) {
+		// delete
+		fsevent.Op = common.OpRemove
+		return fsevent, nil
+	}
+
+	return fsevent, errors.New("invalid event")
+}
+
+func (f *FsWatcher) updateFileMap() {
+	f.fileMap = make(map[string]int)
+	flist := fsops.GetAllFile(f.path)
+
+	for _, file := range flist {
+		f.fileMap[file] = 1
+	}
+}
+
 func (f *FsWatcher) StartWatching() {
 	defer f.watcher.Close()
 
 	done := make(chan bool)
 	go func() {
-		var lastEvent common.FsEvent
 		for {
 			select {
 			case event, ok := <-f.watcher.Events:
@@ -112,34 +161,10 @@ func (f *FsWatcher) StartWatching() {
 				fsevent, err := f.toFsEvent(event)
 				common.ErrorHandleDebug(logtag, err)
 
-				// due to the bug of fsnotify
-				// some events should be detected as combination below
-				// rename: 1.create, 2.rename
-				// remove: 1.chmod, 2.rename
-
-				if lastEvent.Op == common.OpCreate {
-					if fsevent.Op == common.OpRename {
-						// if it is rename event
-						// merge two events into one
-						fsevent.OriginFile = fsevent.FileName
-						fsevent.FileName = lastEvent.FileName
-						f.fschan <- fsevent
-					} else {
-						f.fschan <- lastEvent
-						f.fschan <- fsevent
-					}
-				} else {
-					if fsevent.Op != common.OpCreate && fsevent.Op != common.OpRename {
-						f.fschan <- fsevent
-					}
+				if fseventNew, err := f.getEvent(fsevent); err == nil {
+					f.fschan <- fseventNew
+					f.updateFileMap()
 				}
-
-				if lastEvent.Op == common.OpChmod && fsevent.Op == common.OpRename {
-					fsevent.Op = common.OpRemove
-					f.fschan <- fsevent
-				}
-
-				lastEvent = fsevent
 
 			case err, ok := <-f.watcher.Errors:
 				if !ok {
