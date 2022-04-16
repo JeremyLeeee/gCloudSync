@@ -1,9 +1,9 @@
 package main
 
 import (
-	"gcloudsync/common"
-	"gcloudsync/config"
-	"gcloudsync/core"
+	"gcloudsync/internal/common"
+	"gcloudsync/internal/config"
+	"gcloudsync/internal/core"
 )
 
 var logtag string = "[Main]"

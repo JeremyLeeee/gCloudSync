@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"gcloudsync/common"
+	"gcloudsync/internal/common"
 	"log"
 	"os"
 	"sync"

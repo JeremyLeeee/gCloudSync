@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"gcloudsync/common"
-	"gcloudsync/config"
-	"gcloudsync/fsops"
+	"gcloudsync/internal/common"
+	"gcloudsync/internal/config"
+	"gcloudsync/internal/fsops"
+
 	"log"
 )
 

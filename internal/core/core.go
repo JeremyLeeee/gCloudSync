@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"gcloudsync/common"
-	"gcloudsync/config"
-	"gcloudsync/fsops"
-	"gcloudsync/metadata"
-	"gcloudsync/rsync"
+	"gcloudsync/internal/common"
+	"gcloudsync/internal/config"
+	"gcloudsync/internal/fsops"
+	"gcloudsync/internal/metadata"
+	"gcloudsync/internal/rsync"
+
 	"log"
 	"reflect"
 )
