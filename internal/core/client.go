@@ -30,6 +30,7 @@ func (c *ClientCore) StartClient() {
 	common.ErrorHandleFatal(logtag, err)
 	defer c.client.Close()
 
+	log.Println(logtag, "connected successfully.")
 	done := make(chan bool)
 	initDone := make(chan bool)
 	bc := c.client.GetBuffChan()

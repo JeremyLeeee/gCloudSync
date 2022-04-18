@@ -128,6 +128,9 @@ func (f *FsWatcher) getEvent(fsevent common.FsEvent) (common.FsEvent, error) {
 		}
 	} else if len(f.fileMap) < len(flist) {
 		// create
+		if ok, _ := fsops.IsFolder(fsevent.FileName); ok {
+			fsevent.Op = common.OpMkdir
+		}
 		return fsevent, nil
 	} else if len(f.fileMap) > len(flist) {
 		// delete
