@@ -23,7 +23,7 @@ where ServerIP represents server's public IP address. TruncateBlockSize represen
 config.json should be placed in the same folder with executable binary.
 
 ### Build:
-Go (version 1.7+) should be installed and added to path first.
+Go (version 1.17+) should be installed and added to path first.
 #### Build binaries for all platform
 ```shell
 ./script/build.sh
