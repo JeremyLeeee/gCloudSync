@@ -12,7 +12,6 @@ import (
 )
 
 var logtag string = "[Config]"
-var Version string = "0.1.0 beta"
 
 type Config struct {
 	ServerIP          string
@@ -29,7 +28,7 @@ type ServerRoot struct {
 var ServerIP string = "127.0.0.1"
 var TruncateBlockSize int = 1024
 var TransferBlockSize int = 1024 * 4
-var MaxBufferSize int = 1024 * 1024 * 200
+var MaxBufferSize int = 1024 * 1024 * 192
 var ClientRootPath string = "./"
 
 // un-configurable

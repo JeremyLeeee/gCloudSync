@@ -12,7 +12,7 @@ import (
 
 var logtag string = "[Common]"
 
-var Version string = "0.1.0"
+var Version string = "0.1.1"
 
 type FsOp int
 type SysOp uint16
