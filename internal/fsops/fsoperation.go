@@ -199,6 +199,11 @@ func GetAllFile(path string) (result []string) {
 }
 
 func getAllFileHelper(path string, result []string) []string {
+	if FileHasSuffix(path, ".DS_Store") ||
+		FileHasSuffix(path, ".swp") ||
+		FileHasSuffix(path, "~") {
+		return result
+	}
 	result = append(result, path)
 	if ok, _ := IsFolder(path); !ok {
 		return result
@@ -241,4 +246,12 @@ func GetFolder(path string) (folder string) {
 	filename := tokens[len(tokens)-1]
 	folder = path[0 : len(path)-len(filename)-1]
 	return
+}
+
+func FileHasSuffix(path string, suffix string) bool {
+	if strings.Compare(path[len(path)-len(suffix):], suffix) == 0 {
+		return true
+	} else {
+		return false
+	}
 }

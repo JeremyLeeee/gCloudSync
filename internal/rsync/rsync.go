@@ -124,6 +124,7 @@ func getLocalDataRecord(start uint32, chunkIndex uint32) []byte {
 }
 
 func getDiffDataRecord(start uint32, end uint32, data []byte) []byte {
+	log.Println(logtag, "diff data detected from", start, "to", end)
 	var buf bytes.Buffer
 	b1 := make([]byte, 1)
 	b4 := make([]byte, 4)

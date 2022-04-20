@@ -7,7 +7,6 @@ import (
 	"gcloudsync/internal/fswatcher"
 	"gcloudsync/internal/network"
 	"log"
-	"strings"
 )
 
 type ClientCore struct {
@@ -112,8 +111,10 @@ func (c *ClientCore) startEventLoop(eventDone chan bool, initDone chan bool) {
 		currentFilePath = event.FileName
 		path := fsops.RemoveRootPrefix(event.FileName, true)
 
-		// emit macos .DS_Store file
-		if strings.Compare(event.FileName[len(event.FileName)-8:], "DS_Store") == 0 {
+		// emit
+		if fsops.FileHasSuffix(event.FileName, ".DS_Store") ||
+			fsops.FileHasSuffix(event.FileName, ".swp") ||
+			fsops.FileHasSuffix(event.FileName, "~") {
 			continue
 		}
 		switch event.Op {
